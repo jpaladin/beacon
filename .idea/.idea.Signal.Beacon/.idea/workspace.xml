@@ -1,25 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="6e8da52e-72d6-4d5e-ad0d-3dd3147eb5e0" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.Signal.Beacon/.idea/.name" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.Signal.Beacon/.idea/contentModel.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.Signal.Beacon/.idea/encodings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.Signal.Beacon/.idea/indexLayout.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.Signal.Beacon/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.Signal.Beacon/.idea/projectSettingsUpdater.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.Signal.Beacon/.idea/riderModule.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/.idea.Signal.Beacon/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/Signal.Beacon.Api/Controllers/V1/BeaconController.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Signal.Beacon.Api/Class1.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Signal.Beacon.Api/Class1.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Signal.Beacon.Api/Signal.Beacon.Api.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Signal.Beacon.Api/Signal.Beacon.Api.csproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Signal.Beacon.Application/DevicesRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Signal.Beacon.Application/DevicesRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Signal.Beacon.Application/DevicesService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Signal.Beacon.Application/DevicesService.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Signal.Beacon.Core/Devices/IDevicesRepository.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Signal.Beacon.Core/Devices/IDevicesRepository.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Signal.Beacon.Core/Devices/IDevicesService.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Signal.Beacon.Core/Devices/IDevicesService.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Signal.Beacon.WorkerService/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/Signal.Beacon.WorkerService/Program.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Signal.Beacon.WorkerService/Signal.Beacon.WorkerService.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/Signal.Beacon.WorkerService/Signal.Beacon.WorkerService.csproj" afterDir="false" />
-    </list>
+    <list default="true" id="6e8da52e-72d6-4d5e-ad0d-3dd3147eb5e0" name="Default Changelist" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -36,11 +18,11 @@
       <option value="$PROJECT_DIR$/Signal.Beacon.Application/DevicesService.cs" />
       <option value="$PROJECT_DIR$/Signal.Beacon.Core/Devices/IDevicesRepository.cs" />
       <option value="$PROJECT_DIR$/Signal.Beacon.Application/DevicesRepository.cs" />
-      <option value="$PROJECT_DIR$/Signal.Beacon.Api/Class1.cs" />
       <option value="$PROJECT_DIR$/Signal.Beacon.WorkerService/Program.cs" />
       <option value="$PROJECT_DIR$/Signal.Beacon.Api/Controllers/BeaconController.cs" />
       <option value="$PROJECT_DIR$/Signal.Beacon.WorkerService/appsettings.Development.json" />
       <option value="$PROJECT_DIR$/Signal.Beacon.Api/Controllers/V1/BeaconController.cs" />
+      <option value="$PROJECT_DIR$/Signal.Beacon.Api/Class1.cs" />
     </changedPaths>
   </component>
   <component name="ProjectId" id="1k1lKOQvAStD14DFVIedWAp4q92" />
@@ -90,7 +72,7 @@
       <option name="presentableId" value="Default" />
       <updated>1604875920256</updated>
       <workItem from="1604875932426" duration="2791000" />
-      <workItem from="1604879009002" duration="314000" />
+      <workItem from="1604879009002" duration="1621000" />
     </task>
     <servers />
   </component>
