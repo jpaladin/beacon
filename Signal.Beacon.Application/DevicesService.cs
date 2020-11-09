@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Signal.Beacon.Core.Devices;
 
@@ -25,5 +26,8 @@ namespace Signal.Beacon.Application
 
         public Task<object?> GetStateAsync(DeviceTarget target) => 
             this.deviceStateManager.GetStateAsync(target);
+
+        public Task<IEnumerable<DeviceConfiguration>> GetAllAsync() => 
+            this.devicesRepository.GetAllAsync();
     }
 }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Signal.Beacon.Core.Devices
@@ -9,5 +10,7 @@ namespace Signal.Beacon.Core.Devices
         void SetState(DeviceTarget target, object? value);
 
         Task<object?> GetStateAsync(DeviceTarget target);
+        
+        Task<IEnumerable<DeviceConfiguration>> GetAllAsync();
     }
 }

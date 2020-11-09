@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ContentModelStore">
+    <e p="$PROJECT_DIR$" t="IncludeFlat">
+      <e p="NuGet.config" t="Include" />
+      <e p="packages" t="ExcludeRecursive" />
+      <e p="README.md" t="Include" />
+      <e p="Signal.Beacon.Api" t="IncludeRecursive">
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="Class1.cs" t="Include" />
+        <e p="Controllers" t="Include">
+          <e p="V1" t="Include">
+            <e p="BeaconController.cs" t="Include" />
+          </e>
+        </e>
+        <e p="obj" t="ExcludeRecursive">
+          <e p="Debug" t="Include">
+            <e p="net5.0" t="Include">
+              <e p="Signal.Beacon.Api.AssemblyInfo.cs" t="Include" />
+            </e>
+          </e>
+        </e>
+        <e p="Signal.Beacon.Api.csproj" t="IncludeRecursive" />
+      </e>
+      <e p="Signal.Beacon.Application" t="IncludeRecursive">
+        <e p="ApplicationServiceCollectionExtensions.cs" t="Include" />
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="ConditionEvaluatorService.cs" t="Include" />
+        <e p="ConditionEvaluatorValueProvider.cs" t="Include" />
+        <e p="DevicesRepository.cs" t="Include" />
+        <e p="DevicesService.cs" t="Include" />
+        <e p="DeviceStateManager.cs" t="Include" />
+        <e p="IDeviceStateManager.cs" t="Include" />
+        <e p="MqttClient.cs" t="Include" />
+        <e p="obj" t="ExcludeRecursive">
+          <e p="Debug" t="Include">
+            <e p="net5.0" t="Include">
+              <e p="Signal.Beacon.Application.AssemblyInfo.cs" t="Include" />
+            </e>
+          </e>
+        </e>
+        <e p="ProcessesRepository.cs" t="Include" />
+        <e p="ProcessesService.cs" t="Include" />
+        <e p="Signal.Beacon.Application.csproj" t="IncludeRecursive" />
+      </e>
+      <e p="Signal.Beacon.Configuration" t="IncludeRecursive">
+        <e p="BestMatchDeserializeConverter.cs" t="Include" />
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="ConfigurationServiceCollectionExtensions.cs" t="Include" />
+        <e p="FileSystemConfigurationService.cs" t="Include" />
+        <e p="obj" t="ExcludeRecursive">
+          <e p="Debug" t="Include">
+            <e p="net5.0" t="Include">
+              <e p="Signal.Beacon.Configuration.AssemblyInfo.cs" t="Include" />
+            </e>
+          </e>
+        </e>
+        <e p="Signal.Beacon.Configuration.csproj" t="IncludeRecursive" />
+      </e>
+      <e p="Signal.Beacon.Core" t="IncludeRecursive">
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="Conditions" t="Include">
+          <e p="Condition.cs" t="Include" />
+          <e p="ConditionOperation.cs" t="Include" />
+          <e p="ConditionValueComparison.cs" t="Include" />
+          <e p="ConditionValueDeviceState.cs" t="Include" />
+          <e p="ConditionValueOperation.cs" t="Include" />
+          <e p="ConditionValueStatic.cs" t="Include" />
+          <e p="IConditionComparable.cs" t="Include" />
+          <e p="IConditionEvaluatorService.cs" t="Include" />
+          <e p="IConditionEvaluatorValueProvider.cs" t="Include" />
+          <e p="IConditionValue.cs" t="Include" />
+        </e>
+        <e p="Conducts" t="Include">
+          <e p="Conduct.cs" t="Include" />
+        </e>
+        <e p="Configuration" t="Include">
+          <e p="IConfigurationService.cs" t="Include" />
+        </e>
+        <e p="Devices" t="Include">
+          <e p="DeviceConfiguration.cs" t="Include" />
+          <e p="DeviceContact.cs" t="Include" />
+          <e p="DeviceEndpoint.cs" t="Include" />
+          <e p="DeviceTarget.cs" t="Include" />
+          <e p="IDevicesRepository.cs" t="Include" />
+          <e p="IDevicesService.cs" t="Include" />
+        </e>
+        <e p="Extensions" t="Include">
+          <e p="StringExtensions.cs" t="Include" />
+        </e>
+        <e p="MessageQueue" t="Include">
+          <e p="IMqttClient.cs" t="Include" />
+          <e p="MqttMessage.cs" t="Include" />
+        </e>
+        <e p="obj" t="ExcludeRecursive">
+          <e p="Debug" t="Include">
+            <e p="net5.0" t="Include">
+              <e p="Signal.Beacon.Core.AssemblyInfo.cs" t="Include" />
+            </e>
+          </e>
+        </e>
+        <e p="Processes" t="Include">
+          <e p="IProcessesRepository.cs" t="Include" />
+          <e p="IProcessesService.cs" t="Include" />
+          <e p="Process.cs" t="Include" />
+        </e>
+        <e p="Signal.Beacon.Core.csproj" t="IncludeRecursive" />
+        <e p="Workers" t="Include">
+          <e p="IWorkerService.cs" t="Include" />
+        </e>
+      </e>
+      <e p="Signal.Beacon.PhilipsHue" t="IncludeRecursive">
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="obj" t="ExcludeRecursive">
+          <e p="Debug" t="Include">
+            <e p="net5.0" t="Include">
+              <e p="Signal.Beacon.PhilipsHue.AssemblyInfo.cs" t="Include" />
+            </e>
+          </e>
+        </e>
+        <e p="PhilipsHueServiceCollectionExtensions.cs" t="Include" />
+        <e p="PhilipsHueWorkerService.cs" t="Include" />
+        <e p="Signal.Beacon.PhilipsHue.csproj" t="IncludeRecursive" />
+      </e>
+      <e p="Signal.Beacon.Processor" t="IncludeRecursive">
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="IProcessor.cs" t="Include" />
+        <e p="obj" t="ExcludeRecursive">
+          <e p="Debug" t="Include">
+            <e p="net5.0" t="Include">
+              <e p="Signal.Beacon.Processor.AssemblyInfo.cs" t="Include" />
+            </e>
+          </e>
+        </e>
+        <e p="Processor.cs" t="Include" />
+        <e p="ProcessorServiceCollectionExtensions.cs" t="Include" />
+        <e p="Signal.Beacon.Processor.csproj" t="IncludeRecursive" />
+      </e>
+      <e p="Signal.Beacon.sln" t="IncludeFlat" />
+      <e p="Signal.Beacon.WorkerService" t="IncludeRecursive">
+        <e p="appsettings.Development.json" t="Include" />
+        <e p="appsettings.json" t="Include" />
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="obj" t="ExcludeRecursive">
+          <e p="Debug" t="Include">
+            <e p="net5.0" t="Include">
+              <e p="Signal.Beacon.WorkerService.AssemblyInfo.cs" t="Include" />
+            </e>
+          </e>
+        </e>
+        <e p="Program.cs" t="Include" />
+        <e p="Properties" t="Include">
+          <e p="launchSettings.json" t="Include" />
+        </e>
+        <e p="Signal.Beacon.WorkerService.csproj" t="IncludeRecursive" />
+        <e p="Worker.cs" t="Include" />
+      </e>
+      <e p="Signal.Beacon.Zigbee2Mqtt" t="IncludeRecursive">
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="obj" t="ExcludeRecursive">
+          <e p="Debug" t="Include">
+            <e p="net5.0" t="Include">
+              <e p="Signal.Beacon.Zigbee2Mqtt.AssemblyInfo.cs" t="Include" />
+            </e>
+          </e>
+        </e>
+        <e p="Signal.Beacon.Zigbee2Mqtt.csproj" t="IncludeRecursive" />
+        <e p="Zigbee2MqttServiceCollectionExtensions.cs" t="Include" />
+        <e p="Zigbee2MqttWorkerService.cs" t="Include" />
+      </e>
+      <e p="Solution Items" t="Include" />
+    </e>
+    <e p="$USER_HOME$/Library/Caches/JetBrains/Rider2020.3/extResources" t="IncludeRecursive" />
+    <e p="$USER_HOME$/Library/Caches/JetBrains/Rider2020.3/resharper-host/local/Transient/Rider/v203/SolutionCaches/_Signal.Beacon.1206096082.00" t="ExcludeRecursive" />
+  </component>
+</project>

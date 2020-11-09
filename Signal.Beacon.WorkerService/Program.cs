@@ -1,6 +1,7 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Signal.Beacon.Api;
 using Signal.Beacon.Application;
 using Signal.Beacon.Configuration;
 using Signal.Beacon.PhilipsHue;
@@ -33,6 +34,7 @@ namespace Signal.Beacon.WorkerService
                         .AddBeaconConfiguration()
                         .AddBeaconApplication()
                         .AddBeaconProcessor()
+                        .AddApi()
                         .AddZigbee2Mqtt()
                         .AddPhilipsHue();
 

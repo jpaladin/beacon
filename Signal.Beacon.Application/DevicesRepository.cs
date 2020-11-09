@@ -27,6 +27,9 @@ namespace Signal.Beacon.Application
             return null;
         }
 
+        public Task<IEnumerable<DeviceConfiguration>> GetAllAsync() => 
+            Task.FromResult(this.devices?.Values.AsEnumerable() ?? Enumerable.Empty<DeviceConfiguration>());
+
         private async Task CacheDevicesAsync()
         {
             if (this.devices != null)
