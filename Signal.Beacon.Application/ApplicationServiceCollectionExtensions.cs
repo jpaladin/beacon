@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Signal.Beacon.Core.Conditions;
+using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.MessageQueue;
 using Signal.Beacon.Core.Processes;
@@ -18,6 +19,7 @@ namespace Signal.Beacon.Application
             services.AddSingleton<IProcessesRepository, ProcessesRepository>();
             services.AddSingleton<IMqttClient, MqttClient>();
             services.AddSingleton<IDeviceStateManager, DeviceStateManager>();
+            services.AddTransient<IConductService, ConductService>();
 
             return services;
         }

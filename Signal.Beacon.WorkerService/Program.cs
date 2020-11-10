@@ -1,4 +1,6 @@
 using System;
+using System.Net;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Signal.Beacon.Api;
@@ -10,14 +12,6 @@ using Signal.Beacon.Zigbee2Mqtt;
 
 namespace Signal.Beacon.WorkerService
 {
-    internal class Lazier<T> : Lazy<T> where T : class
-    {
-        public Lazier(IServiceProvider provider)
-            : base(provider.GetRequiredService<T>)
-        {
-        }
-    }
-
     public class Program
     {
         public static void Main(string[] args)
@@ -27,18 +21,30 @@ namespace Signal.Beacon.WorkerService
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
-                .ConfigureServices((_, services) =>
+                .ConfigureWebHostDefaults(webBuilder =>
                 {
-                    services
-                        .AddHostedService<Worker>()
-                        .AddBeaconConfiguration()
-                        .AddBeaconApplication()
-                        .AddBeaconProcessor()
-                        .AddApi()
-                        .AddZigbee2Mqtt()
-                        .AddPhilipsHue();
+                    webBuilder.UseStartup<Startup>();
+                    webBuilder.UseKestrel(opts =>
+                    {
+                        opts.Listen(IPAddress.Loopback, 5002);
+                        opts.ListenAnyIP(5003);
+                        opts.ListenAnyIP(5004, ko => ko.UseHttps());
+                        opts.ListenLocalhost(5005);
+                        opts.ListenLocalhost(5006, ko => ko.UseHttps());
+                    });
 
-                    services.AddTransient(typeof(Lazy<>), typeof(Lazier<>));
+                    webBuilder.ConfigureServices(services =>
+                    {
+                        services
+                            .AddHostedService<Worker>()
+                            .AddBeaconConfiguration()
+                            .AddBeaconApplication()
+                            .AddBeaconProcessor()
+                            .AddZigbee2Mqtt()
+                            .AddPhilipsHue();
+
+                        services.AddTransient(typeof(Lazy<>), typeof(Lazier<>));
+                    });
                 });
     }
 }
