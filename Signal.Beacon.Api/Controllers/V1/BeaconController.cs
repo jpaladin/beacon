@@ -1,11 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Signal.Beacon.Api.Dtos;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Devices;
+using Signal.Beacon.Core.Values;
 
 namespace Signal.Beacon.Api.Controllers.V1
 {
@@ -34,15 +35,20 @@ namespace Signal.Beacon.Api.Controllers.V1
         
         [HttpGet]
         [Route("devices")]
-        public async Task<IActionResult> GetDevicesAsync() =>
-            this.Ok(await this.devicesService.GetAllAsync());
+        public async Task<IEnumerable<DeviceConfiguration>> GetDevicesAsync() =>
+            await this.devicesService.GetAllAsync();
+
+        [HttpGet]
+        [Route("device-state-history")]
+        public async Task<IEnumerable<IHistoricalValue>?> GetDeviceStateHistoryAsync(string identifier, string contact, DateTime startTimeStamp, DateTime endTimeStamp) => 
+            await this.devicesService.GetStateHistoryAsync(new DeviceTarget(identifier, contact), startTimeStamp, endTimeStamp);
 
         [HttpGet]
         [Route("device-state")]
-        public async Task<IActionResult> GetDeviceStateAsync(string identifier, string contact)
+        public async Task<string?> GetDeviceStateAsync(string identifier, string contact)
         {
             var value = await this.devicesService.GetStateAsync(new DeviceTarget(identifier, contact));
-            return value == null ? this.Ok(null) : this.Ok(JsonSerializer.Serialize(value, value.GetType()));
+            return value == null ? null : JsonSerializer.Serialize(value, value.GetType());
         }
 
         [HttpPost]

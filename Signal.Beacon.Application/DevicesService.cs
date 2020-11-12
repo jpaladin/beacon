@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Signal.Beacon.Core.Devices;
+using Signal.Beacon.Core.Values;
 
 namespace Signal.Beacon.Application
 {
@@ -23,6 +24,12 @@ namespace Signal.Beacon.Application
 
         public void SetState(DeviceTarget target, object? value) => 
             this.deviceStateManager.SetState(target, value);
+
+        public Task<IEnumerable<IHistoricalValue>?> GetStateHistoryAsync(
+            DeviceTarget target, 
+            DateTime startTimeStamp,
+            DateTime endTimeStamp) =>
+            this.deviceStateManager.GetStateHistoryAsync(target, startTimeStamp, endTimeStamp);
 
         public Task<object?> GetStateAsync(DeviceTarget target) => 
             this.deviceStateManager.GetStateAsync(target);

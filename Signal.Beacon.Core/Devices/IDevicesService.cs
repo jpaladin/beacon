@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Signal.Beacon.Core.Values;
 
 namespace Signal.Beacon.Core.Devices
 {
@@ -12,5 +14,10 @@ namespace Signal.Beacon.Core.Devices
         Task<object?> GetStateAsync(DeviceTarget target);
         
         Task<IEnumerable<DeviceConfiguration>> GetAllAsync();
+
+        Task<IEnumerable<IHistoricalValue>?> GetStateHistoryAsync(
+            DeviceTarget target, 
+            DateTime startTimeStamp,
+            DateTime endTimeStamp);
     }
 }
