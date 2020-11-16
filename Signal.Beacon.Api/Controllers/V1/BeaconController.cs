@@ -14,14 +14,14 @@ namespace Signal.Beacon.Api.Controllers.V1
     [Route("[controller]")]
     public class BeaconController : Controller
     {
-        private readonly IDevicesService devicesService;
+        private readonly IDevicesDao devicesDao;
         private readonly IConductService conductService;
 
         public BeaconController(
-            IDevicesService devicesService,
+            IDevicesDao devicesDao,
             IConductService conductService)
         {
-            this.devicesService = devicesService ?? throw new ArgumentNullException(nameof(devicesService));
+            this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
             this.conductService = conductService ?? throw new ArgumentNullException(nameof(conductService));
         }
         
@@ -36,18 +36,18 @@ namespace Signal.Beacon.Api.Controllers.V1
         [HttpGet]
         [Route("devices")]
         public async Task<IEnumerable<DeviceConfiguration>> GetDevicesAsync() =>
-            await this.devicesService.GetAllAsync();
+            await this.devicesDao.GetAllAsync();
 
         [HttpGet]
         [Route("device-state-history")]
         public async Task<IEnumerable<IHistoricalValue>?> GetDeviceStateHistoryAsync(string identifier, string contact, DateTime startTimeStamp, DateTime endTimeStamp) => 
-            await this.devicesService.GetStateHistoryAsync(new DeviceTarget(identifier, contact), startTimeStamp, endTimeStamp);
+            await this.devicesDao.GetStateHistoryAsync(new DeviceTarget(identifier, contact), startTimeStamp, endTimeStamp);
 
         [HttpGet]
         [Route("device-state")]
         public async Task<string?> GetDeviceStateAsync(string identifier, string contact)
         {
-            var value = await this.devicesService.GetStateAsync(new DeviceTarget(identifier, contact));
+            var value = await this.devicesDao.GetStateAsync(new DeviceTarget(identifier, contact));
             return value == null ? null : JsonSerializer.Serialize(value, value.GetType());
         }
 

@@ -26,11 +26,7 @@ namespace Signal.Beacon.WorkerService
                     webBuilder.UseStartup<Startup>();
                     webBuilder.UseKestrel(opts =>
                     {
-                        opts.Listen(IPAddress.Loopback, 5002);
-                        opts.ListenAnyIP(5003);
-                        opts.ListenAnyIP(5004, ko => ko.UseHttps());
-                        opts.ListenLocalhost(5005);
-                        opts.ListenLocalhost(5006, ko => ko.UseHttps());
+                        opts.ListenAnyIP(5000);
                     });
 
                     webBuilder.ConfigureServices(services =>
