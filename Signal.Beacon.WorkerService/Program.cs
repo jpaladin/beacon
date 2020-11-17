@@ -1,6 +1,7 @@
 using System;
 using System.Net;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Signal.Beacon.Api;
@@ -26,7 +27,7 @@ namespace Signal.Beacon.WorkerService
                     webBuilder.UseStartup<Startup>();
                     webBuilder.UseKestrel(opts =>
                     {
-                        opts.ListenAnyIP(5000);
+                        opts.ListenAnyIP(5000, lo => lo.Protocols = HttpProtocols.Http1AndHttp2);
                     });
 
                     webBuilder.ConfigureServices(services =>

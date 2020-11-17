@@ -68,7 +68,7 @@ namespace Signal.Beacon.Application
             await this.mqttClient.PublishAsync(
                 new MqttApplicationMessageBuilder()
                     .WithTopic(topic)
-                    .WithPayload(JsonConvert.SerializeObject(payload))
+                    .WithPayload(payload is string ? payload.ToString() : JsonConvert.SerializeObject(payload))
                     .WithRetainFlag(retain)
                     .Build());
         }
