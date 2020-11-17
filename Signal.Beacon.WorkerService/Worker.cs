@@ -12,12 +12,12 @@ namespace Signal.Beacon.WorkerService
     public class Worker : BackgroundService
     {
         private readonly IMqttClient mqttClient;
-        private readonly IEnumerable<IWorkerService> workerServices;
+        private readonly Lazy<IEnumerable<IWorkerService>> workerServices;
         private readonly ILogger<Worker> logger;
         
         public Worker(
             IMqttClient mqttClient,
-            IEnumerable<IWorkerService> workerServices, 
+            Lazy<IEnumerable<IWorkerService>> workerServices, 
             ILogger<Worker> logger)
         {
             this.mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
@@ -29,7 +29,7 @@ namespace Signal.Beacon.WorkerService
         {
             await this.mqttClient.StartAsync(stoppingToken);
 
-            foreach (var workerService in this.workerServices)
+            foreach (var workerService in this.workerServices.Value)
             {
                 try
                 {

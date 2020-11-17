@@ -7,12 +7,12 @@ namespace Signal.Beacon.Application
 {
     public class ConditionEvaluatorValueProvider : IConditionEvaluatorValueProvider
     {
-        private readonly IDevicesService devicesService;
+        private readonly IDevicesDao devicesDao;
 
         public ConditionEvaluatorValueProvider(
-            IDevicesService devicesService)
+            IDevicesDao devicesDao)
         {
-            this.devicesService = devicesService ?? throw new ArgumentNullException(nameof(devicesService));
+            this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
         }
 
         public async Task<object?> GetValueAsync(IConditionValue conditionValue)
@@ -22,7 +22,7 @@ namespace Signal.Beacon.Application
                 ConditionValueStatic conditionValueStatic => conditionValueStatic.Value,
                 ConditionValueDeviceState conditionValueDeviceState => conditionValueDeviceState.Target == null
                     ? null
-                    : await this.devicesService.GetStateAsync(conditionValueDeviceState.Target),
+                    : await this.devicesDao.GetStateAsync(conditionValueDeviceState.Target),
                 _ => throw new NotSupportedException(
                     $"Not supported condition value comparison: {conditionValue.GetType().FullName}")
             };

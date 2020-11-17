@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.Extensions;
 using Signal.Beacon.Core.MessageQueue;
+using Signal.Beacon.Core.Values;
 
 namespace Signal.Beacon.Application
 {
@@ -13,6 +15,9 @@ namespace Signal.Beacon.Application
 
         private readonly Dictionary<DeviceTarget, object?> states = 
             new Dictionary<DeviceTarget, object?>();
+
+        private readonly Dictionary<DeviceTarget, ICollection<IHistoricalValue>> statesHistory =
+            new Dictionary<DeviceTarget, ICollection<IHistoricalValue>>();
 
 
         public DeviceStateManager(
@@ -31,14 +36,21 @@ namespace Signal.Beacon.Application
             else if (bool.TryParse(valueString, out var valueBool))
                 setValue = valueBool;
 
-            if (!this.states.ContainsKey(target))
-                this.states.Add(target, null);
-            this.states[target] = setValue;
+            this.states.AddOrSet(target, setValue);
+            this.statesHistory.Append(target, new HistoricalValue(value, DateTime.UtcNow));
 
             this.client.PublishAsync(
                 $"signal/devices/state/set/{target.Identifier.EscapeSlashes()}/{target.Channel}/{target.Contact}",
                 setValue);
         }
+
+        public async Task<IEnumerable<IHistoricalValue>?> GetStateHistoryAsync(
+            DeviceTarget target,
+            DateTime startTimeStamp, 
+            DateTime endTimeStamp) =>
+            this.statesHistory.TryGetValue(target, out var history)
+                ? history.Where(hv => hv.TimeStamp >= startTimeStamp && hv.TimeStamp <= endTimeStamp)
+                : null;
 
         public async Task<object?> GetStateAsync(DeviceTarget target) => 
             this.states.TryGetValue(target, out var state) ? state : null;

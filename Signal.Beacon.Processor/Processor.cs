@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Signal.Beacon.Core.Conditions;
+using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.Extensions;
 using Signal.Beacon.Core.MessageQueue;
@@ -15,17 +16,20 @@ namespace Signal.Beacon.Processor
     {
         private readonly IConditionEvaluatorService conditionEvaluatorService;
         private readonly IProcessesService processesService;
+        private readonly IConductService conductService;
         private readonly IMqttClient mqttClient;
         private readonly ILogger<Processor> logger;
 
         public Processor(
             IConditionEvaluatorService conditionEvaluatorService,
             IProcessesService processesService,
+            IConductService conductService,
             IMqttClient mqttClient,
             ILogger<Processor> logger)
         {
             this.conditionEvaluatorService = conditionEvaluatorService ?? throw new ArgumentNullException(nameof(conditionEvaluatorService));
             this.processesService = processesService ?? throw new ArgumentNullException(nameof(processesService));
+            this.conductService = conductService ?? throw new ArgumentNullException(nameof(conductService));
             this.mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -89,11 +93,10 @@ namespace Signal.Beacon.Processor
                 if (!result) 
                     continue;
 
-                this.logger.LogInformation("Executing conducts for {ProcessName}", trigger.Process.Name);
+                this.logger.LogInformation("Executing process {ProcessName}...", trigger.Process.Name);
 
                 // Publish conduct
-                foreach (var conduct in trigger.Process.Conducts)
-                    await this.mqttClient.PublishAsync("signal/conducts/zigbee2mqtt", conduct);
+                await this.conductService.PublishConductsAsync("zigbee2mqtt", trigger.Process.Conducts);
             }
         }
     }

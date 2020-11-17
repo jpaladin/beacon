@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Signal.Beacon.Api\Signal.Beacon.Api.csproj" />
     <ProjectReference Include="..\Signal.Beacon.Application\Signal.Beacon.Application.csproj" />
     <ProjectReference Include="..\Signal.Beacon.Configuration\Signal.Beacon.Configuration.csproj" />
     <ProjectReference Include="..\Signal.Beacon.Core\Signal.Beacon.Core.csproj" />

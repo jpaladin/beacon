@@ -40,7 +40,7 @@ namespace Signal.Beacon.Application
                 .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
                 .WithClientOptions(new MqttClientOptionsBuilder()
                     .WithClientId("Signal.Beacon")
-                    .WithTcpServer("192.168.0.3") // TODO: Read from configuration
+                    .WithTcpServer("192.168.0.5") // TODO: Read from configuration
                     .Build())
                 .Build();
 
@@ -68,7 +68,7 @@ namespace Signal.Beacon.Application
             await this.mqttClient.PublishAsync(
                 new MqttApplicationMessageBuilder()
                     .WithTopic(topic)
-                    .WithPayload(JsonConvert.SerializeObject(payload))
+                    .WithPayload(payload is string ? payload.ToString() : JsonConvert.SerializeObject(payload))
                     .WithRetainFlag(retain)
                     .Build());
         }

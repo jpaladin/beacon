@@ -26,12 +26,12 @@ namespace Signal.Beacon.Configuration
 
             this.serializationSettings = new()
             {
-                NullValueHandling = NullValueHandling.Ignore,
-                DefaultValueHandling = DefaultValueHandling.Ignore,
+                NullValueHandling = NullValueHandling.Include,
+                DefaultValueHandling = DefaultValueHandling.Populate,
             };
             this.deserializationSettings = new()
             {
-                NullValueHandling = NullValueHandling.Ignore,
+                NullValueHandling = NullValueHandling.Include,
                 DefaultValueHandling = DefaultValueHandling.Populate,
                 Converters =
                 {

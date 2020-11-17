@@ -6,7 +6,9 @@ namespace Signal.Beacon.Core.Devices
     public class DeviceEndpoint
     {
         public string Channel { get; }
+
         public IEnumerable<DeviceContact> Inputs { get; }
+
         public IEnumerable<DeviceContact> Outputs { get; }
 
         public DeviceEndpoint(
