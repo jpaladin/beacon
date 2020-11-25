@@ -15,7 +15,13 @@
 
 #### Wake word - Porcupine
 
-Porcupine custom trained model for wake word `"signal"` expires every 30 days. You need to retrail one ourself or use provided profile if not expired. More info on training your custom wake work model can be found on [GitHub: Picovoice Porcupine repo](https://github.com/Picovoice/porcupine/).
+Porcupine custom trained model for wake word `"signal"` expires every 30 days. You need to retrail one ourself or use provided model if not expired. More info on training your custom wake work model can be found on [GitHub: Picovoice Porcupine repo](https://github.com/Picovoice/porcupine/).
+
+Wake word aucustic model is located in:
+
+- `Profiles/signal_windows_2020-12-33_v1.8.0.ppn`
+
+Model is automatically selected based on date and version. Version must match with installed Procupine NuGet package version.
 
 #### DeepSpeech
 

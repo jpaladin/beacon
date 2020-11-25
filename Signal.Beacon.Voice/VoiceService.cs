@@ -18,7 +18,7 @@ namespace Signal.Beacon.Voice
     {
         public string Name { get; init; }
 
-        public Dictionary<string, float> HotWords { get; } = new Dictionary<string, float>();
+        public Dictionary<string, float> HotWords { get; } = new();
     }
 
     public class VoiceService : IWorkerService, IDisposable
@@ -29,9 +29,8 @@ namespace Signal.Beacon.Voice
         private short[]? porcupineRecordingBuffer;
         private const float PorcupineSensitivity = 0.7f;
         private const string PorcupineModelFilePath = @"lib\common\porcupine_params.pv";
-        private const string? PorcupineKeywordFilePath = @"Profiles\signal_windows_2020-12-23_v1.8.0.ppn";
 
-        private readonly List<SpeechScene> speechScenes = new List<SpeechScene>();
+        private readonly List<SpeechScene> speechScenes = new();
         private DeepSpeech? deepSpeechClient;
         private int? deepSpeechFrameLength;
         private short[]? deepSpeechRecordingBuffer;
@@ -45,7 +44,7 @@ namespace Signal.Beacon.Voice
         
         private ALCaptureDevice? captureDevice;
 
-        private readonly List<AlSound> sounds = new List<AlSound>();
+        private readonly List<AlSound> sounds = new();
         private ALContext? alContext;
         private int? alSource;
 
@@ -57,9 +56,22 @@ namespace Signal.Beacon.Voice
         private void InitializePorcupine()
         {
             var executionLocation = ExecutingLocation();
+            var porcupineVersion = typeof(Porcupine).Assembly.GetName().Version;
+            if (porcupineVersion == null)
+                throw new Exception("Couldn't determine Porcupine version.");
+
+            // Locate profile file
+            var modelsAvailable = Directory.EnumerateFiles(Path.Combine(executionLocation, "Profiles/"), "*.ppn").ToList();
+            var orderedModelsAvailable = modelsAvailable.OrderByDescending(m => m);
+            var matchingModelName = orderedModelsAvailable.FirstOrDefault();
+            if (matchingModelName == null)
+                throw new Exception(
+                    $"Didn't match any valid Porcupine models. Available models: {string.Join(", ", modelsAvailable)}");
+            this.logger.LogDebug("Porcupine model selected: {ModelName}", matchingModelName);
+
             this.porcupine = new Porcupine(
                 Path.Combine(executionLocation, PorcupineModelFilePath),
-                new[] { Path.Combine(executionLocation, PorcupineKeywordFilePath) },
+                new[] { Path.Combine(executionLocation, "Profiles", matchingModelName) },
                 new[] { PorcupineSensitivity });
             this.porcupineRecordingBuffer = new short[this.porcupine.FrameLength];
         }
