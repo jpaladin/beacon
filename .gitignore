@@ -449,3 +449,5 @@ MigrationBackup/
 .ionide/
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudio,visualstudiocode,macos,windows,linux,dotnetcore
+*.pbmm
+Signal.Beacon.Voice/Profiles/deepspeech-0.9.1-models.scorer

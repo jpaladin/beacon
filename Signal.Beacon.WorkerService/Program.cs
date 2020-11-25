@@ -9,6 +9,7 @@ using Signal.Beacon.Application;
 using Signal.Beacon.Configuration;
 using Signal.Beacon.PhilipsHue;
 using Signal.Beacon.Processor;
+using Signal.Beacon.Voice;
 using Signal.Beacon.Zigbee2Mqtt;
 
 namespace Signal.Beacon.WorkerService
@@ -38,7 +39,8 @@ namespace Signal.Beacon.WorkerService
                             .AddBeaconApplication()
                             .AddBeaconProcessor()
                             .AddZigbee2Mqtt()
-                            .AddPhilipsHue();
+                            .AddPhilipsHue()
+                            .AddVoice();
 
                         services.AddTransient(typeof(Lazy<>), typeof(Lazier<>));
                     });

@@ -52,7 +52,7 @@ namespace Signal.Beacon.Application
                 ? history.Where(hv => hv.TimeStamp >= startTimeStamp && hv.TimeStamp <= endTimeStamp)
                 : null;
 
-        public async Task<object?> GetStateAsync(DeviceTarget target) => 
-            this.states.TryGetValue(target, out var state) ? state : null;
+        public Task<object?> GetStateAsync(DeviceTarget target) => 
+            this.states.TryGetValue(target, out var state) ? Task.FromResult(state) : Task.FromResult<object?>(null);
     }
 }

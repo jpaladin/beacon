@@ -23,7 +23,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Application",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.PhilipsHue", "Signal.Beacon.PhilipsHue\Signal.Beacon.PhilipsHue.csproj", "{3F45A199-EDD7-439D-937A-D2CAE36DC66C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Signal.Beacon.Api", "Signal.Beacon.Api\Signal.Beacon.Api.csproj", "{385327C7-3152-435E-B46C-E12E8696672D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Api", "Signal.Beacon.Api\Signal.Beacon.Api.csproj", "{385327C7-3152-435E-B46C-E12E8696672D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Signal.Beacon.Voice", "Signal.Beacon.Voice\Signal.Beacon.Voice.csproj", "{EE74B50A-41F7-4613-85F9-BBCD691482C9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -63,6 +65,10 @@ Global
 		{385327C7-3152-435E-B46C-E12E8696672D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{385327C7-3152-435E-B46C-E12E8696672D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{385327C7-3152-435E-B46C-E12E8696672D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EE74B50A-41F7-4613-85F9-BBCD691482C9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EE74B50A-41F7-4613-85F9-BBCD691482C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EE74B50A-41F7-4613-85F9-BBCD691482C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EE74B50A-41F7-4613-85F9-BBCD691482C9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
