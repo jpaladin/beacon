@@ -29,7 +29,7 @@ namespace Signal.Beacon.Voice
         private short[]? porcupineRecordingBuffer;
         private const float PorcupineSensitivity = 0.7f;
         private const string PorcupineModelFilePath = @"lib\common\porcupine_params.pv";
-        private const string? PorcupineKeywordFilePath = @"signal_windows_2020-12-23_v1.8.0.ppn";
+        private const string? PorcupineKeywordFilePath = @"Profiles\signal_windows_2020-12-23_v1.8.0.ppn";
 
         private readonly List<SpeechScene> speechScenes = new List<SpeechScene>();
         private DeepSpeech? deepSpeechClient;
@@ -38,8 +38,8 @@ namespace Signal.Beacon.Voice
         private const int DeepSpeechSilenceDuration = 1800;
         private const int DeepSpeechDurationLimit = 30000;
         private const int DeepSpeechIntermediatePeriod = 100;
-        private const string DeepSpeechModelFileName = "deepspeech-0.9.1-models.pbmm";
-        private const string DeepSpeechScorerFileName = "deepspeech-0.9.1-models.scorer";
+        private const string DeepSpeechModelFileName = @"Profiles\deepspeech-0.9.1-models.pbmm";
+        private const string DeepSpeechScorerFileName = @"Profiles\deepspeech-0.9.1-models.scorer";
         private const float DeepSpeechScorerAlpha = 0.931289039105002f;
         private const float DeepSpeechScorerBeta = 1.1834137581510284f;
         
