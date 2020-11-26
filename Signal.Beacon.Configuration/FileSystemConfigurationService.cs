@@ -47,11 +47,20 @@ namespace Signal.Beacon.Configuration
             this.logger.LogDebug("Configuration path: {AbsolutePath}", AsAbsolutePath(""));
         }
 
+        public async Task<T> LoadAsync<T>(string name) where T : new() =>
+            await this.LoadFromFileSystemAsync<T>(name);
+
+        public async Task SaveAsync<T>(string name, T config) =>
+            await this.SaveToFileSystemAsync(name, config);
+
         public async Task<IEnumerable<DeviceConfiguration>> LoadDevicesAsync() => 
             await this.LoadFromFileSystemAsync<List<DeviceConfiguration>>(DevicesConfigPath);
 
         public async Task<IEnumerable<Process>> LoadProcessesAsync() => 
             await this.LoadFromFileSystemAsync<List<Process>>(ProcessesConfigPath);
+
+        private async Task SaveToFileSystemAsync<T>(string path, T config) => 
+            await File.WriteAllTextAsync(AsAbsolutePath(path), JsonConvert.SerializeObject(config));
 
         private async Task<T> LoadFromFileSystemAsync<T>(string path)
             where T : new()

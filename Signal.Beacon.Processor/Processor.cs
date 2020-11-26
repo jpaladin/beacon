@@ -96,7 +96,7 @@ namespace Signal.Beacon.Processor
                 this.logger.LogInformation("Executing process {ProcessName}...", trigger.Process.Name);
 
                 // Publish conduct
-                await this.conductService.PublishConductsAsync("zigbee2mqtt", trigger.Process.Conducts);
+                await this.conductService.PublishConductsAsync(trigger.Process.Conducts);
             }
         }
     }

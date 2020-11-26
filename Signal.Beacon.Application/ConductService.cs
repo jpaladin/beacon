@@ -18,16 +18,16 @@ namespace Signal.Beacon.Application
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task PublishConductsAsync(string wireIdentifier, IEnumerable<Conduct> conducts)
+        public async Task PublishConductsAsync(IEnumerable<Conduct> conducts)
         {
             foreach (var conduct in conducts) 
-                await this.PublishConduct(wireIdentifier, conduct);
+                await this.PublishConduct(conduct);
         }
 
-        private async Task PublishConduct(string wireIdentifier, Conduct conduct)
+        private async Task PublishConduct(Conduct conduct)
         {
-            await this.client.PublishAsync($"signal/conducts/{wireIdentifier}", conduct);
-            this.logger.LogDebug("Conduct published: {Wire} {@Conduct}", wireIdentifier, conduct);
+            await this.client.PublishAsync($"signal/conducts/{conduct.Target.Identifier}", conduct);
+            this.logger.LogDebug("Conduct published: {@Conduct}", conduct);
         }
     }
 }

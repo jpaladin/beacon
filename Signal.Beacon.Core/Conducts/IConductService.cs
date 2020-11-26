@@ -5,6 +5,6 @@ namespace Signal.Beacon.Core.Conducts
 {
     public interface IConductService
     {
-        Task PublishConductsAsync(string wireIdentifier, IEnumerable<Conduct> conduct);
+        Task PublishConductsAsync(IEnumerable<Conduct> conduct);
     }
 }

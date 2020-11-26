@@ -10,5 +10,7 @@ namespace Signal.Beacon.Core.Configuration
         Task<IEnumerable<DeviceConfiguration>> LoadDevicesAsync();
 
         Task<IEnumerable<Process>> LoadProcessesAsync();
+        Task<T> LoadAsync<T>(string name) where T : new();
+        Task SaveAsync<T>(string name, T config);
     }
 }

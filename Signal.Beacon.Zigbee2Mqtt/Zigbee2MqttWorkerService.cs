@@ -44,7 +44,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
             this.logger.LogInformation("Starting Zigbee2Mqtt...");
 
             await this.mqttClient.SubscribeAsync(MqttTopicSubscription, this.MessageHandler);
-            await this.mqttClient.SubscribeAsync("signal/conducts/zigbee2mqtt", this.ConductHandler);
+            await this.mqttClient.SubscribeAsync("signal/conducts/#", this.ConductHandler);
 
             // Trigger configuration refresh
             await this.mqttClient.PublishAsync("zigbee2mqtt/bridge/config/devices/get", null);
@@ -55,8 +55,21 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
         private async Task ConductHandler(MqttMessage arg)
         {
+            if (arg == null) throw new ArgumentNullException(nameof(arg));
+            if (string.IsNullOrWhiteSpace(arg.Payload))
+                throw new ArgumentNullException(nameof(arg.Payload), "Conduct payload is null.");
+
             var conduct = JsonConvert.DeserializeObject<Conduct>(arg.Payload);
-            await this.PublishStateAsync(conduct.Target.Identifier, conduct.Target.Contact, conduct.Value?.ToString());
+            if (conduct.Target == null ||
+                conduct.Target.Contact == null)
+            {
+                this.logger.LogWarning("Conduct contact is null. Conduct: {@Conduct}", conduct);
+                return;
+            }
+
+            // TODO: Filter only Z2M devices
+
+            await this.PublishStateAsync(conduct.Target.Identifier, conduct.Target.Contact, conduct.Value.ToString()?.ToLowerInvariant() == "true" ? "ON" : "OFF");
         }
 
         private async Task MessageHandler(MqttMessage message)

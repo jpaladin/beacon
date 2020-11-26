@@ -54,6 +54,6 @@ namespace Signal.Beacon.Api.Controllers.V1
         [HttpPost]
         [Route("conduct")]
         public async Task PublishConductAsync(ConductDto conduct) =>
-            await this.conductService.PublishConductsAsync("zigbee2mqtt", new[] {new Conduct(conduct.Target, conduct.Value)});
+            await this.conductService.PublishConductsAsync(new[] {new Conduct(conduct.Target, conduct.Value)});
     }
 }
