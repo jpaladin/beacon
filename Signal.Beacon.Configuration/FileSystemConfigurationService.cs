@@ -60,7 +60,7 @@ namespace Signal.Beacon.Configuration
             await this.LoadFromFileSystemAsync<List<Process>>(ProcessesConfigPath);
 
         private async Task SaveToFileSystemAsync<T>(string path, T config) => 
-            await File.WriteAllTextAsync(AsAbsolutePath(path), JsonConvert.SerializeObject(config));
+            await File.WriteAllTextAsync(AsAbsolutePath(path), JsonConvert.SerializeObject(config, this.serializationSettings));
 
         private async Task<T> LoadFromFileSystemAsync<T>(string path)
             where T : new()

@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Signal.Beacon.Api.Dtos;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Devices;
+using Signal.Beacon.Core.Processes;
 using Signal.Beacon.Core.Values;
 
 namespace Signal.Beacon.Api.Controllers.V1
@@ -15,13 +16,16 @@ namespace Signal.Beacon.Api.Controllers.V1
     public class BeaconController : Controller
     {
         private readonly IDevicesDao devicesDao;
+        private readonly IProcessesDao processesDao;
         private readonly IConductService conductService;
 
         public BeaconController(
             IDevicesDao devicesDao,
+            IProcessesDao processesDao,
             IConductService conductService)
         {
             this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
+            this.processesDao = processesDao ?? throw new ArgumentNullException(nameof(processesDao));
             this.conductService = conductService ?? throw new ArgumentNullException(nameof(conductService));
         }
         
@@ -55,5 +59,10 @@ namespace Signal.Beacon.Api.Controllers.V1
         [Route("conduct")]
         public async Task PublishConductAsync(ConductDto conduct) =>
             await this.conductService.PublishConductsAsync(new[] {new Conduct(conduct.Target, conduct.Value)});
+
+        [HttpGet]
+        [Route("processes")]
+        public async Task<IEnumerable<Process>> GetProcessesAsync() => 
+            await this.processesDao.GetAllAsync();
     }
 }

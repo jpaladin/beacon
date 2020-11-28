@@ -187,9 +187,14 @@ namespace Signal.Beacon.Zigbee2Mqtt
                         }
                         
                         var contact = new DeviceContact(name, dataType);
-                        var isInput = feature.Access?.Contains("r") ?? false;
-                        if (isInput) inputs.Add(contact);
-                        var isOutput = feature.Access?.Contains("w") ?? false;
+                        var isInput = feature.Access.HasFlag(BridgeDeviceExposeFeatureAccess.Readonly) ||
+                                      feature.Access.HasFlag(BridgeDeviceExposeFeatureAccess.Request);
+                        if (isInput)
+                            inputs.Add(
+                                contact with {
+                                    IsReadonly = feature.Access.HasFlag(BridgeDeviceExposeFeatureAccess.Readonly)
+                                    });
+                        var isOutput = feature.Access.HasFlag(BridgeDeviceExposeFeatureAccess.Write);
                         if (isOutput) outputs.Add(contact);
                     }
 
@@ -197,7 +202,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
                     {
                         deviceConfig.Endpoints = new List<DeviceEndpoint>
                         {
-                            new DeviceEndpoint("main", inputs, outputs)
+                            new("main", inputs, outputs)
                         };
                     }
                 }
@@ -209,7 +214,8 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
         private async Task RefreshDeviceAsync(DeviceConfiguration device)
         {
-            var inputContacts = device.Endpoints.SelectMany(e => e.Inputs.Select(ei => ei.Name));
+            var inputContacts =
+                device.Endpoints.SelectMany(e => e.Inputs.Where(i => !i.IsReadonly).Select(ei => ei.Name));
             foreach (var inputContact in inputContacts)
                 await this.mqttClient.PublishAsync(
                     $"zigbee2mqtt/{device.Alias}/get",
@@ -221,6 +227,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
             {
                 "binary" => "bool",
                 "numeric" => "double",
+                "enum" => "string",
                 _ => null
             };
 
@@ -260,10 +267,19 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
         public List<BridgeDeviceExposeFeature>? Exposes { get; set; }
     }
-    
+
+    [Flags]
+    internal enum BridgeDeviceExposeFeatureAccess
+    {
+        Unknown = 0,
+        Readonly = 0x1,
+        Write = 0x2,
+        Request = 0x4
+    }
+
     internal class BridgeDeviceExposeFeature
     {
-        public string? Access { get; set; }
+        public BridgeDeviceExposeFeatureAccess Access { get; set; }
 
         public string? Property { get; set; }
 

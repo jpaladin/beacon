@@ -66,6 +66,7 @@ namespace Signal.Beacon.Application
                 return;
 
             this.devices = new Dictionary<string, DeviceConfiguration>();
+            // TODO: Load when implemented updating devices
             //this.devices = (await this.configurationService.LoadDevicesAsync()).ToDictionary(d => d.Identifier);
         }
     }

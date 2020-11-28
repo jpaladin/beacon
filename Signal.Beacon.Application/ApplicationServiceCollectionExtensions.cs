@@ -17,6 +17,7 @@ namespace Signal.Beacon.Application
             services.AddTransient<ICommandHandler<DeviceDiscoveredCommand>, DevicesCommandHandler>();
             services.AddTransient<IProcessesService, ProcessesService>();
             services.AddSingleton<IDevicesDao, DevicesDao>();
+            services.AddSingleton<IProcessesDao, ProcessesDao>();
             services.AddSingleton<IProcessesRepository, ProcessesRepository>();
             services.AddSingleton<IMqttClient, MqttClient>();
             services.AddSingleton<IDeviceStateManager, DeviceStateManager>();
