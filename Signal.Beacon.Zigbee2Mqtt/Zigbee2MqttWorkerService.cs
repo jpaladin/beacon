@@ -98,7 +98,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
             }
 
             var deviceTarget = new DeviceTarget(device.Identifier);
-            var inputs = device.Endpoints.SelectMany(e => e.Inputs.Select(ei => ei.Name)).ToList();
+            var inputs = device.Endpoints.SelectMany(e => e.Inputs).ToList();
             if (!inputs.Any())
             {
                 this.logger.LogDebug("Device {DeviceIdentifier} has no inputs", topic);
@@ -107,15 +107,20 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
             foreach (var jProperty in JToken.Parse(payload)
                 .Value<JObject>()
-                .Properties()
-                .Where(jp => inputs.Contains(jp.Name)))
+                .Properties())
             {
+                var input = inputs.FirstOrDefault(i => i.Name == jProperty.Name);
+                if (input == null)
+                    continue;
+                
                 var target = deviceTarget with {Contact = jProperty.Name};
                 var value = jProperty.Value.Value<string>();
+                var dataType = input.DataType;
+                var mappedValue = MapZ2MValueToValue(dataType, value);
 
                 try
                 {
-                    await this.deviceSetStateHandler.HandleAsync(new DeviceStateSetCommand(target, value));
+                    await this.deviceSetStateHandler.HandleAsync(new DeviceStateSetCommand(target, mappedValue));
                 }
                 catch (Exception ex)
                 {
@@ -177,7 +182,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
                             continue;
 
                         // Map zigbee2mqtt type to signal data type
-                        var dataType = MapToDataType(type);
+                        var dataType = MapZ2MTypeToDataType(type);
                         if (string.IsNullOrWhiteSpace(dataType))
                         {
                             this.logger.LogWarning(
@@ -222,7 +227,36 @@ namespace Signal.Beacon.Zigbee2Mqtt
                     $"{{ \"{inputContact}\": \"\" }}");
         }
 
-        private static string? MapToDataType(string type) =>
+        private static object? MapZ2MValueToValue(string dataType, string? value)
+        {
+            return dataType switch
+            {
+                "bool" => ValueToBool(value),
+                "double" => ValueToNumeric(value),
+                "string" => value,
+                _ => value
+            };
+        }
+
+        private static object? ValueToNumeric(string? value)
+        {
+            if (double.TryParse(value, out var doubleValue))
+                return doubleValue;
+            return value;
+        }
+
+        private static object? ValueToBool(string? value)
+        {
+            if (bool.TryParse(value, out var boolVal))
+                return boolVal;
+            if (value?.ToLowerInvariant() == "on")
+                return true;
+            if (value?.ToLowerInvariant() == "off")
+                return false;
+            return value;
+        }
+
+        private static string? MapZ2MTypeToDataType(string type) =>
             type switch
             {
                 "binary" => "bool",
