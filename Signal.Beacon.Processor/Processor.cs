@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Signal.Beacon.Core.Conditions;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Devices;
@@ -14,6 +15,7 @@ namespace Signal.Beacon.Processor
 {
     internal class Processor : IProcessor
     {
+        private readonly ICommandHandler<DeviceStateSetCommand> deviceStateSetCommandHandler;
         private readonly IConditionEvaluatorService conditionEvaluatorService;
         private readonly IProcessesService processesService;
         private readonly IConductService conductService;
@@ -21,12 +23,14 @@ namespace Signal.Beacon.Processor
         private readonly ILogger<Processor> logger;
 
         public Processor(
+            ICommandHandler<DeviceStateSetCommand> deviceStateSetCommandHandler,
             IConditionEvaluatorService conditionEvaluatorService,
             IProcessesService processesService,
             IConductService conductService,
             IMqttClient mqttClient,
             ILogger<Processor> logger)
         {
+            this.deviceStateSetCommandHandler = deviceStateSetCommandHandler ?? throw new ArgumentNullException(nameof(deviceStateSetCommandHandler));
             this.conditionEvaluatorService = conditionEvaluatorService ?? throw new ArgumentNullException(nameof(conditionEvaluatorService));
             this.processesService = processesService ?? throw new ArgumentNullException(nameof(processesService));
             this.conductService = conductService ?? throw new ArgumentNullException(nameof(conductService));
@@ -38,6 +42,13 @@ namespace Signal.Beacon.Processor
         public async Task StartAsync(CancellationToken cancellationToken)
         {
             await this.mqttClient.SubscribeAsync("signal/devices/state/set/#", this.Handler);
+            await this.mqttClient.SubscribeAsync("signal/conducts/signal/rooms/#", this.HandlerRooms);
+        }
+
+        private async Task HandlerRooms(MqttMessage arg)
+        {
+            var conduct = JsonConvert.DeserializeObject<Conduct>(arg.Payload);
+            await this.deviceStateSetCommandHandler.HandleAsync(new DeviceStateSetCommand(conduct.Target, conduct.Value));
         }
 
         private async Task Handler(MqttMessage arg)
