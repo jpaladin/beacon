@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Signal.Beacon.Api.Dtos;
@@ -39,30 +40,30 @@ namespace Signal.Beacon.Api.Controllers.V1
         
         [HttpGet]
         [Route("devices")]
-        public async Task<IEnumerable<DeviceConfiguration>> GetDevicesAsync() =>
-            await this.devicesDao.GetAllAsync();
+        public async Task<IEnumerable<DeviceConfiguration>> GetDevicesAsync(CancellationToken cancellationToken) =>
+            await this.devicesDao.GetAllAsync(cancellationToken);
 
         [HttpGet]
         [Route("device-state-history")]
-        public async Task<IEnumerable<IHistoricalValue>?> GetDeviceStateHistoryAsync(string identifier, string contact, DateTime startTimeStamp, DateTime endTimeStamp) => 
-            await this.devicesDao.GetStateHistoryAsync(new DeviceTarget(identifier, contact), startTimeStamp, endTimeStamp);
+        public async Task<IEnumerable<IHistoricalValue>?> GetDeviceStateHistoryAsync(string identifier, string contact, DateTime startTimeStamp, DateTime endTimeStamp, CancellationToken cancellationToken) => 
+            await this.devicesDao.GetStateHistoryAsync(new DeviceTarget(identifier, contact), startTimeStamp, endTimeStamp, cancellationToken);
 
         [HttpGet]
         [Route("device-state")]
-        public async Task<string?> GetDeviceStateAsync(string identifier, string contact)
+        public async Task<string?> GetDeviceStateAsync(string identifier, string contact, CancellationToken cancellationToken)
         {
-            var value = await this.devicesDao.GetStateAsync(new DeviceTarget(identifier, contact));
+            var value = await this.devicesDao.GetStateAsync(new DeviceTarget(identifier, contact), cancellationToken);
             return value == null ? null : JsonSerializer.Serialize(value, value.GetType());
         }
 
         [HttpPost]
         [Route("conduct")]
-        public async Task PublishConductAsync(ConductDto conduct) =>
-            await this.conductService.PublishConductsAsync(new[] {new Conduct(conduct.Target, conduct.Value)});
+        public async Task PublishConductAsync(ConductDto conduct, CancellationToken cancellationToken) =>
+            await this.conductService.PublishConductsAsync(new[] {new Conduct(conduct.Target, conduct.Value)}, cancellationToken);
 
         [HttpGet]
         [Route("processes")]
-        public async Task<IEnumerable<Process>> GetProcessesAsync() => 
-            await this.processesDao.GetAllAsync();
+        public async Task<IEnumerable<Process>> GetProcessesAsync(CancellationToken cancellationToken) => 
+            await this.processesDao.GetAllAsync(cancellationToken);
     }
 }

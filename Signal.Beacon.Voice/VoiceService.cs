@@ -6,7 +6,6 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using DeepSpeechClient;
 using Microsoft.Extensions.Logging;
 using OpenTK.Audio.OpenAL;
 using Pv;
@@ -31,22 +30,13 @@ namespace Signal.Beacon.Voice
         private const string PorcupineModelFilePath = @"lib\common\porcupine_params.pv";
 
         private readonly List<SpeechScene> speechScenes = new();
-        private DeepSpeech? deepSpeechClient;
-        private int? deepSpeechFrameLength;
-        private short[]? deepSpeechRecordingBuffer;
-        private const int DeepSpeechSilenceDuration = 1800;
-        private const int DeepSpeechDurationLimit = 30000;
-        private const int DeepSpeechIntermediatePeriod = 100;
-        private const string DeepSpeechModelFileName = @"Profiles\deepspeech-0.9.1-models.pbmm";
-        private const string DeepSpeechScorerFileName = @"Profiles\deepspeech-0.9.1-models.scorer";
-        private const float DeepSpeechScorerAlpha = 0.931289039105002f;
-        private const float DeepSpeechScorerBeta = 1.1834137581510284f;
-        
+
         private ALCaptureDevice? captureDevice;
 
         private readonly List<AlSound> sounds = new();
         private ALContext? alContext;
         private int? alSource;
+
 
         public VoiceService(ILogger<VoiceService> logger)
         {
@@ -114,47 +104,11 @@ namespace Signal.Beacon.Voice
                 return;
             }
 
-            if (this.deepSpeechClient == null)
-                throw new NullReferenceException("DeepSpeech is null. Can't change scene now. Initialize first");
-
-            this.deepSpeechClient.ClearHotWords();
-            foreach (var (word, boost) in scene.HotWords) 
-                this.deepSpeechClient.AddHotWord(word, boost);
+            // TODO: Set hot words
 
             this.logger.LogDebug("Speech scene {SceneName} set", name);
         }
-
-        private void InitializeDeepSpeech()
-        {
-            var executingLocation = ExecutingLocation();
-            this.deepSpeechClient = new DeepSpeech(
-                Path.Combine(
-                    executingLocation,
-                    DeepSpeechModelFileName));
-            this.deepSpeechClient.EnableExternalScorer(
-                Path.Combine(
-                    executingLocation,
-                    DeepSpeechScorerFileName));
-            this.deepSpeechClient.SetScorerAlphaBeta(DeepSpeechScorerAlpha, DeepSpeechScorerBeta);
-            this.deepSpeechFrameLength = this.deepSpeechClient.GetModelSampleRate();
-            this.deepSpeechRecordingBuffer = new short[this.deepSpeechFrameLength.Value];
-            var beamWidth = this.deepSpeechClient.GetModelBeamWidth();
-            this.deepSpeechClient.SetModelBeamWidth(beamWidth * 2);
-
-            var generalScene = new SpeechScene
-            {
-                Name = "General"
-            };
-            generalScene.HotWords.Add("light", 0.1f);
-            generalScene.HotWords.Add("bed", 0.1f);
-            generalScene.HotWords.Add("sleep", 0.1f);
-            generalScene.HotWords.Add("leaving", 0.1f);
-            generalScene.HotWords.Add("off", 0.1f);
-            generalScene.HotWords.Add("on", 0.1f);
-            this.RegisterSpeechScene(generalScene);
-            this.SetSpeechScene(generalScene.Name);
-        }
-
+        
         private static string ExecutingLocation()
         {
             var executingLocation = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
@@ -229,101 +183,28 @@ namespace Signal.Beacon.Voice
             ALC.CaptureSamples(this.captureDevice.Value, ref buffer[0], frameLength);
             return true;
         }
-
-        private string? ProcessDeepSpeech(CancellationToken cancellationToken)
-        {
-            if (this.deepSpeechClient == null)
-                throw new NullReferenceException("DeepSpeechClient is null. Initialize DeepSpeech first.");
-            if (this.deepSpeechFrameLength == null)
-                throw new NullReferenceException("DeepSpeech FrameLength is null. Initialize DeepSpeech first.");
-            if (this.deepSpeechRecordingBuffer == null)
-                throw new NullReferenceException("DeepSpeech RecordingBuffer is null. Initialize DeepSpeech first.");
-
-            var swTotalTranscript = new Stopwatch();
-            var swLastIntermediateResult = new Stopwatch();
-            var swCurrentIntermediateResult = new Stopwatch();
-            swCurrentIntermediateResult.Start();
-            swTotalTranscript.Start();
-
-            try
-            {
-                var frameLength = this.deepSpeechFrameLength.Value;
-                var lastIntermediateResult = string.Empty;
-
-                using var dss = this.deepSpeechClient.CreateStream();
-
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    if (this.GetNextFrame(frameLength, ref this.deepSpeechRecordingBuffer))
-                    {
-                        this.deepSpeechClient.FeedAudioContent(dss,
-                            this.deepSpeechRecordingBuffer,
-                            Convert.ToUInt32(this.deepSpeechFrameLength));
-                    }
-
-                    if (swCurrentIntermediateResult.ElapsedMilliseconds > DeepSpeechIntermediatePeriod)
-                    {
-                        var intermediateResult = this.deepSpeechClient.IntermediateDecode(dss).ToLowerInvariant().Trim();
-
-                        // If intermediate result changed
-                        if (lastIntermediateResult != intermediateResult)
-                        {
-                            lastIntermediateResult = intermediateResult;
-                            swLastIntermediateResult.Restart();
-
-                            this.logger.LogInformation("Human: {Result}...", intermediateResult);
-                        }
-
-                        swCurrentIntermediateResult.Restart();
-                    }
-
-                    // Silence detection (or duration limit exceeded)
-                    // TODO: Increase silence if no conducts available
-                    if (swTotalTranscript.Elapsed > TimeSpan.FromMilliseconds(DeepSpeechDurationLimit) ||
-                        swLastIntermediateResult.Elapsed > TimeSpan.FromMilliseconds(DeepSpeechSilenceDuration))
-                    {
-                        var result = this.deepSpeechClient.FinishStream(dss).ToLowerInvariant().Trim();
-                        this.logger.LogInformation(
-                            "Human: {Result}. (in {Elapsed}s)",
-                            result,
-                            swTotalTranscript.Elapsed);
-
-                        return result;
-                    }
-
-                    Thread.Yield();
-                }
-
-                return null;
-            }
-            catch(Exception ex)
-            {
-                this.logger.LogWarning(ex, "Processing failed.");
-                return null;
-            }
-        }
-
+        
         // Loads a wave/riff audio file.
         public static byte[] LoadWave(Stream stream, out int channels, out int bits, out int rate)
         {
             if (stream == null)
                 throw new ArgumentNullException(nameof(stream));
 
-            using BinaryReader reader = new BinaryReader(stream);
+            using BinaryReader reader = new(stream);
 
             // RIFF header
-            string signature = new string(reader.ReadChars(4));
+            string signature = new(reader.ReadChars(4));
             if (signature != "RIFF")
                 throw new NotSupportedException("Specified stream is not a wave file.");
 
             _ = reader.ReadInt32();      //riff_chunk_size
 
-            string format = new string(reader.ReadChars(4));
+            string format = new(reader.ReadChars(4));
             if (format != "WAVE")
                 throw new NotSupportedException("Specified stream is not a wave file.");
 
             // WAVE header
-            string formatSignature = new string(reader.ReadChars(4));
+            string formatSignature = new(reader.ReadChars(4));
             if (formatSignature != "fmt ")
                 throw new NotSupportedException("Specified wave file is not supported.");
 
@@ -335,7 +216,13 @@ namespace Signal.Beacon.Voice
             _ = reader.ReadInt16();                     // block_align
             int bitsPerSample = reader.ReadInt16();   // bits_per_sample
 
-            string dataSignature = new string(reader.ReadChars(4));
+            while (reader.PeekChar() == '\0')
+            {
+                // Ignore
+                reader.ReadChar();
+            }
+
+            string dataSignature = new(reader.ReadChars(4));
             if (dataSignature != "data")
                 throw new NotSupportedException("Specified wave file is not supported.");
 
@@ -361,19 +248,20 @@ namespace Signal.Beacon.Voice
         
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            _ = Task.Run(() =>
+            _ = Task.Run(async () =>
             {
                 try
                 {
                     this.InitializePorcupine();
-                    this.InitializeDeepSpeech();
                     this.InitializeSounds();
+
+                    await this.PlaySoundAsync("Hello.");
 
                     var captureDeviceName = this.GetAvailableCaptureDevices().FirstOrDefault();
                     if (captureDeviceName == null)
                         throw new Exception("No capture devices available");
 
-                    this.InitializeCaptureDevice(captureDeviceName, this.deepSpeechFrameLength ?? 1600);
+                    this.InitializeCaptureDevice(captureDeviceName, 1600);
                     this.StartCaptureDevice();
 
                     while (!cancellationToken.IsCancellationRequested)
@@ -383,7 +271,8 @@ namespace Signal.Beacon.Voice
                             break;
 
                         _ = this.PlaySoundAsync("wake");
-                        var result = this.ProcessDeepSpeech(cancellationToken);
+                        //var result = this.ProcessDeepSpeech(cancellationToken);
+                        var result = string.Empty;
 
                         _ = this.PlaySoundAsync(string.IsNullOrWhiteSpace(result)
                             ? "error"
@@ -396,6 +285,11 @@ namespace Signal.Beacon.Voice
                 }
             }, cancellationToken);
 
+            return Task.CompletedTask;
+        }
+
+        public Task StopAsync(CancellationToken cancellationToken)
+        {
             return Task.CompletedTask;
         }
 
@@ -413,16 +307,31 @@ namespace Signal.Beacon.Voice
             // Generate source
             this.alSource = AL.GenSource();
             this.AlHasError();
+        }
 
+        private async Task TryCacheSoundAsync(string text)
+        {
+            try
+            {
+                throw new NotImplementedException();
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogWarning(ex, "Failed to cache sound for {Text}", text);
+            }
+        }
+
+        private AlSound? LoadCachedSound(string text)
+        {
             var executionLocation = ExecutingLocation();
-            
-            const string wakePath = @"voice_wake.wav";
-            const string acceptPath = @"voice_accept.wav";
-            const string errorPath = @"voice_error.wav";
-            
-            this.sounds.Add(this.WavToAudioSource("accept", Path.Combine(executionLocation, "Sounds", acceptPath)));
-            this.sounds.Add(this.WavToAudioSource("error", Path.Combine(executionLocation, "Sounds", errorPath)));
-            this.sounds.Add(this.WavToAudioSource("wake", Path.Combine(executionLocation, "Sounds", wakePath)));
+            var soundPath = Path.Combine(executionLocation, "Sounds", "voice_" + text + ".wav");
+
+            if (!File.Exists(soundPath))
+                return null;
+
+            var sound = this.WavToAudioSource("wake", soundPath);
+            this.sounds.Add(sound);
+            return sound;
         }
 
         private void DisposeSounds()
@@ -467,28 +376,48 @@ namespace Signal.Beacon.Voice
                 return;
             }
 
-            if (!this.alSource.HasValue)
+            if (this.alSource == null)
             {
                 this.logger.LogWarning("Can't play sound because source is null");
                 return;
             }
 
-            var sound = this.sounds.FirstOrDefault(s => s.Name == name);
-            if (sound == null)
-                throw new Exception("Sound not found \"" + name + "\".");
+            try
+            {
+                var nameCleared = name.Trim().ToLowerInvariant();
+                var sound = this.sounds.FirstOrDefault(s => s.Name == nameCleared);
+                if (sound == null)
+                {
+                    // Try load cached sound
+                    sound = this.LoadCachedSound(nameCleared);
+                    if (sound == null)
+                    {
+                        await this.TryCacheSoundAsync(name);
+                        sound = this.LoadCachedSound(nameCleared);
+                        if (sound == null)
+                        {
+                            throw new Exception("Sound not found \"" + name + "\". Unable to generate cache.");
+                        }
+                    }
+                }
 
-            await this.WaitSourceToStop();
+                await this.WaitSourceToStop();
 
-            ALC.MakeContextCurrent(this.alContext.Value);
-            this.AlHasError();
+                ALC.MakeContextCurrent(this.alContext.Value);
+                this.AlHasError();
 
-            AL.BindBufferToSource(this.alSource.Value, sound.Buffer);
-            this.AlHasError();
+                AL.BindBufferToSource(this.alSource.Value, sound.Buffer);
+                this.AlHasError();
 
-            AL.SourcePlay(this.alSource.Value);
-            this.AlHasError();
+                AL.SourcePlay(this.alSource.Value);
+                this.AlHasError();
 
-            await this.WaitSourceToStop();
+                await this.WaitSourceToStop();
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "Failed to play sound.");
+            }
         }
 
         private Task WaitSourceToStop()
@@ -556,15 +485,14 @@ namespace Signal.Beacon.Voice
         public void Dispose()
         {
             var sw = Stopwatch.StartNew();
-            this.logger.LogInformation("Stopping Voice service...");
+            this.logger.LogDebug("Disposing Voice service...");
 
             this.DisposePorcupine();
-            this.DisposeSpeechClient();
             this.DisposeCaptureDevice();
             this.DisposeSounds();
             
             sw.Stop();
-            this.logger.LogInformation("Voice service stopped in {Elapsed}", sw.Elapsed);
+            this.logger.LogDebug("Voice service disposed in {Elapsed}", sw.Elapsed);
         }
 
         private void DisposePorcupine()
@@ -572,13 +500,6 @@ namespace Signal.Beacon.Voice
             this.logger.LogDebug("Disposing Porcupine...");
 
             this.porcupine?.Dispose();
-        }
-
-        private void DisposeSpeechClient()
-        {
-            this.logger.LogDebug("Disposing DeepSpeech...");
-
-            this.deepSpeechClient?.Dispose();
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Signal.Beacon.Core.Configuration;
 using Signal.Beacon.Core.Devices;
@@ -23,16 +24,16 @@ namespace Signal.Beacon.Application
             this.deviceStateManager = deviceStateManager ?? throw new ArgumentNullException(nameof(deviceStateManager));
         }
 
-        public async Task<DeviceConfiguration?> GetByAliasAsync(string alias)
+        public async Task<DeviceConfiguration?> GetByAliasAsync(string alias, CancellationToken cancellationToken)
         {
-            await this.CacheDevicesAsync();
+            await this.CacheDevicesAsync(cancellationToken);
 
             return this.devices?.Values.FirstOrDefault(d => d.Alias == alias);
         }
 
-        public async Task<DeviceConfiguration?> GetAsync(string identifier)
+        public async Task<DeviceConfiguration?> GetAsync(string identifier, CancellationToken cancellationToken)
         {
-            await this.CacheDevicesAsync();
+            await this.CacheDevicesAsync(cancellationToken);
 
             if (this.devices != null && 
                 this.devices.TryGetValue(identifier, out var device))
@@ -40,27 +41,27 @@ namespace Signal.Beacon.Application
             return null;
         }
 
-        public async Task<IEnumerable<DeviceConfiguration>> GetAllAsync()
+        public async Task<IEnumerable<DeviceConfiguration>> GetAllAsync(CancellationToken cancellationToken)
         {
-            await this.CacheDevicesAsync();
+            await this.CacheDevicesAsync(cancellationToken);
 
             return this.devices?.Values.AsEnumerable() ?? Enumerable.Empty<DeviceConfiguration>();
         }
 
-        public Task<IEnumerable<IHistoricalValue>?> GetStateHistoryAsync(DeviceTarget deviceTarget, DateTime startTimeStamp, DateTime endTimeStamp) => 
+        public Task<IEnumerable<IHistoricalValue>?> GetStateHistoryAsync(DeviceTarget deviceTarget, DateTime startTimeStamp, DateTime endTimeStamp, CancellationToken cancellationToken) => 
             this.deviceStateManager.GetStateHistoryAsync(deviceTarget, startTimeStamp, endTimeStamp);
 
-        public Task<object?> GetStateAsync(DeviceTarget deviceTarget) => 
+        public Task<object?> GetStateAsync(DeviceTarget deviceTarget, CancellationToken cancellationToken) => 
             this.deviceStateManager.GetStateAsync(deviceTarget);
 
-        public async Task UpdateDeviceAsync(string deviceIdentifier, DeviceConfiguration deviceConfiguration)
+        public async Task UpdateDeviceAsync(string deviceIdentifier, DeviceConfiguration deviceConfiguration, CancellationToken cancellationToken)
         {
-            await this.CacheDevicesAsync();
+            await this.CacheDevicesAsync(cancellationToken);
 
             this.devices?.AddOrSet(deviceIdentifier, deviceConfiguration);
         }
 
-        private async Task CacheDevicesAsync()
+        private async Task CacheDevicesAsync(CancellationToken cancellationToken)
         {
             if (this.devices != null)
                 return;

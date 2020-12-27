@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.Values;
@@ -8,7 +9,7 @@ namespace Signal.Beacon.Application
 {
     public interface IDeviceStateManager
     {
-        void SetState(DeviceTarget target, object? value);
+        Task SetStateAsync(DeviceTarget target, object? value, CancellationToken cancellationToken);
 
         Task<object?> GetStateAsync(DeviceTarget target);
 

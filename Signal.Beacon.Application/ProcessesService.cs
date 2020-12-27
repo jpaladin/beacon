@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Signal.Beacon.Core.Processes;
 
@@ -14,6 +15,6 @@ namespace Signal.Beacon.Application
             this.processesRepository = processesRepository ?? throw new ArgumentNullException(nameof(processesRepository));
         }
 
-        public Task<IEnumerable<Process>> GetAllAsync() => this.processesRepository.GetAllAsync();
+        public Task<IEnumerable<Process>> GetAllAsync(CancellationToken cancellationToken) => this.processesRepository.GetAllAsync(cancellationToken);
     }
 }

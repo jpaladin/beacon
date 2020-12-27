@@ -7,8 +7,6 @@ using Newtonsoft.Json;
 using Signal.Beacon.Core.Conditions;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Devices;
-using Signal.Beacon.Core.Extensions;
-using Signal.Beacon.Core.MessageQueue;
 using Signal.Beacon.Core.Processes;
 
 namespace Signal.Beacon.Processor
@@ -19,7 +17,6 @@ namespace Signal.Beacon.Processor
         private readonly IConditionEvaluatorService conditionEvaluatorService;
         private readonly IProcessesService processesService;
         private readonly IConductService conductService;
-        private readonly IMqttClient mqttClient;
         private readonly ILogger<Processor> logger;
 
         public Processor(
@@ -27,47 +24,49 @@ namespace Signal.Beacon.Processor
             IConditionEvaluatorService conditionEvaluatorService,
             IProcessesService processesService,
             IConductService conductService,
-            IMqttClient mqttClient,
             ILogger<Processor> logger)
         {
             this.deviceStateSetCommandHandler = deviceStateSetCommandHandler ?? throw new ArgumentNullException(nameof(deviceStateSetCommandHandler));
             this.conditionEvaluatorService = conditionEvaluatorService ?? throw new ArgumentNullException(nameof(conditionEvaluatorService));
             this.processesService = processesService ?? throw new ArgumentNullException(nameof(processesService));
             this.conductService = conductService ?? throw new ArgumentNullException(nameof(conductService));
-            this.mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            await this.mqttClient.SubscribeAsync("signal/devices/state/set/#", this.Handler);
-            await this.mqttClient.SubscribeAsync("signal/conducts/signal/rooms/#", this.HandlerRooms);
+            // TODO: Subscribe to state changes
         }
 
-        private async Task HandlerRooms(MqttMessage arg)
+        public Task StopAsync(CancellationToken cancellationToken)
         {
-            var conduct = JsonConvert.DeserializeObject<Conduct>(arg.Payload);
-            await this.deviceStateSetCommandHandler.HandleAsync(new DeviceStateSetCommand(conduct.Target, conduct.Value));
+            return Task.CompletedTask;
         }
 
-        private async Task Handler(MqttMessage arg)
-        {
-            var deviceTarget = arg.Topic.Replace("signal/devices/state/set/", "");
-            var deviceTargetSplit = deviceTarget.Split("/", StringSplitOptions.RemoveEmptyEntries);
+        //private async Task HandlerRooms(MqttMessage arg)
+        //{
+        //    var conduct = JsonConvert.DeserializeObject<Conduct>(arg.Payload);
+        //    await this.deviceStateSetCommandHandler.HandleAsync(new DeviceStateSetCommand(conduct.Target, conduct.Value));
+        //}
 
-            this.logger.LogDebug("Got device state changes. Processing...");
+        //private async Task Handler(MqttMessage arg)
+        //{
+        //    var deviceTarget = arg.Topic.Replace("signal/devices/state/set/", "");
+        //    var deviceTargetSplit = deviceTarget.Split("/", StringSplitOptions.RemoveEmptyEntries);
 
-            await this.ProcessStateChangedAsync(new DeviceTarget(
-                deviceTargetSplit[0].UnescapeSlashes(), 
-                deviceTargetSplit[2].UnescapeSlashes(),
-                deviceTargetSplit[1].UnescapeSlashes()));
-        }
+        //    this.logger.LogDebug("Got device state changes. Processing...");
 
-        private async Task ProcessStateChangedAsync(DeviceTarget target)
+        //    await this.ProcessStateChangedAsync(new DeviceTarget(
+        //        deviceTargetSplit[0].UnescapeSlashes(), 
+        //        deviceTargetSplit[2].UnescapeSlashes(),
+        //        deviceTargetSplit[1].UnescapeSlashes()));
+        //}
+
+        private async Task ProcessStateChangedAsync(DeviceTarget target, CancellationToken cancellationToken)
         {
             var availableTriggers =
-                (await this.processesService.GetAllAsync())
+                (await this.processesService.GetAllAsync(cancellationToken))
                 .Select(p => new
                 {
                     Process = p,
@@ -94,7 +93,7 @@ namespace Signal.Beacon.Processor
                 var result = false;
                 try
                 {
-                    result = await this.conditionEvaluatorService.IsConditionMetAsync(trigger.Process.Condition);
+                    result = await this.conditionEvaluatorService.IsConditionMetAsync(trigger.Process.Condition, cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -104,10 +103,10 @@ namespace Signal.Beacon.Processor
                 if (!result) 
                     continue;
 
-                this.logger.LogInformation("Executing process {ProcessName}...", trigger.Process.Name);
+                this.logger.LogInformation("Executing \"{ProcessName}\"... (trigger {Target})", trigger.Process.Name, target);
 
                 // Publish conduct
-                await this.conductService.PublishConductsAsync(trigger.Process.Conducts);
+                await this.conductService.PublishConductsAsync(trigger.Process.Conducts, cancellationToken);
             }
         }
     }

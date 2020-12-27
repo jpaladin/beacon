@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Signal.Beacon.Core.Workers;
+using Signal.Beacon.Zigbee2Mqtt.MessageQueue;
 
 namespace Signal.Beacon.Zigbee2Mqtt
 {
@@ -7,7 +8,9 @@ namespace Signal.Beacon.Zigbee2Mqtt
     {
         public static IServiceCollection AddZigbee2Mqtt(this IServiceCollection services)
         {
-            return services.AddSingleton<IWorkerService, Zigbee2MqttWorkerService>();
+            return services
+                .AddSingleton<IWorkerService, Zigbee2MqttWorkerService>()
+                .AddSingleton<IMqttClient, MqttClient>();
         }
     }
 }

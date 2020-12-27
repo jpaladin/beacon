@@ -14,6 +14,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.CognitiveServices.Speech" Version="1.14.0" />
     <PackageReference Include="OpenTK.OpenAL" Version="4.3.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="5.0.0" />
@@ -25,18 +26,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Profiles/deepspeech-0.9.1-models.pbmm">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="Profiles/deepspeech-0.9.1-models.scorer">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Update="libs/libdeepspeech.so">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="libs/libdeepspeech.so.if.lib">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Update="Profiles/signal_windows_2020-12-23_v1.8.0.ppn">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

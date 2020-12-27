@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Signal.Beacon.Core.Conditions;
 
@@ -15,14 +16,14 @@ namespace Signal.Beacon.Application
             this.valueProvider = valueProvider;
         }
 
-        public async Task<bool> IsConditionMetAsync(IConditionComparable comparable)
+        public async Task<bool> IsConditionMetAsync(IConditionComparable comparable, CancellationToken cancellationToken)
         {
             switch (comparable)
             {
                 case ConditionValueComparison conditionValueComparison:
                 {
-                    var left = this.valueProvider.GetValueAsync(conditionValueComparison.Left);
-                    var right = this.valueProvider.GetValueAsync(conditionValueComparison.Right);
+                    var left = this.valueProvider.GetValueAsync(conditionValueComparison.Left, cancellationToken);
+                    var right = this.valueProvider.GetValueAsync(conditionValueComparison.Right, cancellationToken);
                     await Task.WhenAll(left, right);
                     var leftResult = left.Result;
                     var rightResult = right.Result;
@@ -39,7 +40,7 @@ namespace Signal.Beacon.Application
                     var orOperationsLeft = conditionOperations.Count(o => o.Operation == ConditionOperation.Or);
                     foreach (var operation in conditionOperations)
                     {
-                        var operationResult = await this.IsConditionMetAsync(operation);
+                        var operationResult = await this.IsConditionMetAsync(operation, cancellationToken);
                         if (result == null)
                         {
                             result = operationResult;

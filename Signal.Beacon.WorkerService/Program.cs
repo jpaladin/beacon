@@ -1,11 +1,11 @@
 using System;
-using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Signal.Beacon.Api;
 using Signal.Beacon.Application;
+using Signal.Beacon.Channel.Signal;
 using Signal.Beacon.Configuration;
 using Signal.Beacon.PhilipsHue;
 using Signal.Beacon.Processor;
@@ -37,6 +37,7 @@ namespace Signal.Beacon.WorkerService
                             .AddHostedService<Worker>()
                             .AddBeaconConfiguration()
                             .AddBeaconApplication()
+                            .AddSignalApi()
                             .AddBeaconProcessor()
                             .AddZigbee2Mqtt()
                             .AddPhilipsHue()

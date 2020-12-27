@@ -8,8 +8,8 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Devices;
-using Signal.Beacon.Core.MessageQueue;
 using Signal.Beacon.Core.Workers;
+using Signal.Beacon.Zigbee2Mqtt.MessageQueue;
 
 namespace Signal.Beacon.Zigbee2Mqtt
 {
@@ -22,6 +22,8 @@ namespace Signal.Beacon.Zigbee2Mqtt
         private readonly ICommandHandler<DeviceDiscoveredCommand> deviceDiscoverHandler;
         private readonly IMqttClient mqttClient;
         private readonly ILogger<Zigbee2MqttWorkerService> logger;
+
+        private readonly CancellationTokenSource cts = new();
 
 
         public Zigbee2MqttWorkerService(
@@ -41,19 +43,21 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            this.logger.LogInformation("Starting Zigbee2Mqtt...");
+            await this.mqttClient.StartAsync("192.168.0.5", cancellationToken);
 
-            await this.mqttClient.SubscribeAsync(MqttTopicSubscription, this.MessageHandler);
-            await this.mqttClient.SubscribeAsync("signal/conducts/#", this.ConductHandler);
-
-            // Trigger configuration refresh
+            await this.mqttClient.SubscribeAsync(MqttTopicSubscription, m => this.MessageHandler(m, this.cts.Token));
+            
             await this.mqttClient.PublishAsync("zigbee2mqtt/bridge/config/devices/get", null);
-
-            // Disable joining new devices
             await this.mqttClient.PublishAsync("zigbee2mqtt/bridge/config/permit_join", "false");
         }
 
-        private async Task ConductHandler(MqttMessage arg)
+        public async Task StopAsync(CancellationToken cancellationToken)
+        {
+            this.cts.Cancel();
+            await this.mqttClient.StopAsync(cancellationToken);
+        }
+
+        private async Task ConductHandler(MqttMessage arg, CancellationToken cancellationToken)
         {
             if (arg == null) throw new ArgumentNullException(nameof(arg));
             if (string.IsNullOrWhiteSpace(arg.Payload))
@@ -69,18 +73,22 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
             // TODO: Filter only Z2M devices
 
-            await this.PublishStateAsync(conduct.Target.Identifier, conduct.Target.Contact, conduct.Value.ToString()?.ToLowerInvariant() == "true" ? "ON" : "OFF");
+            await this.PublishStateAsync(conduct.Target.Identifier, conduct.Target.Contact, conduct.Value.ToString()?.ToLowerInvariant() == "true" ? "ON" : "OFF", cancellationToken);
         }
 
-        private async Task MessageHandler(MqttMessage message)
+        private async Task MessageHandler(MqttMessage message, CancellationToken cancellationToken)
         {
             try
             {
                 var (topic, payload, _) = message;
 
+                // Ignore logging
+                if (topic.StartsWith("zigbee2mqtt/bridge/logging"))
+                    return;
+                
                 if (topic == "zigbee2mqtt/bridge/devices")
-                    await this.HandleDevicesConfigChangeAsync(message.Payload);
-                else await this.HandleDeviceTopicAsync(topic, payload);
+                    await this.HandleDevicesConfigChangeAsync(message.Payload, cancellationToken);
+                else await this.HandleDeviceTopicAsync(topic, payload, cancellationToken);
             }
             catch (Exception ex)
             {
@@ -88,9 +96,9 @@ namespace Signal.Beacon.Zigbee2Mqtt
             }
         }
 
-        private async Task HandleDeviceTopicAsync(string topic, string payload)
+        private async Task HandleDeviceTopicAsync(string topic, string payload, CancellationToken cancellationToken)
         {
-            var device = await this.devicesDao.GetByAliasAsync(topic.Replace("zigbee2mqtt/", ""));
+            var device = await this.devicesDao.GetByAliasAsync(topic.Replace("zigbee2mqtt/", ""), cancellationToken);
             if (device == null)
             {
                 this.logger.LogDebug("Device {DeviceIdentifier} not found", topic);
@@ -120,7 +128,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
                 try
                 {
-                    await this.deviceSetStateHandler.HandleAsync(new DeviceStateSetCommand(target, mappedValue));
+                    await this.deviceSetStateHandler.HandleAsync(new DeviceStateSetCommand(target, mappedValue), cancellationToken);
                 }
                 catch (Exception ex)
                 {
@@ -129,7 +137,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
             }
         }
 
-        private async Task HandleDevicesConfigChangeAsync(string messagePayload)
+        private async Task HandleDevicesConfigChangeAsync(string messagePayload, CancellationToken cancellationToken)
         {
             var config = JsonConvert.DeserializeObject<List<BridgeDevice>>(messagePayload);
             foreach (var bridgeDevice in config)
@@ -140,9 +148,9 @@ namespace Signal.Beacon.Zigbee2Mqtt
                     continue;
                 }
 
-                var existingDevice = await this.devicesDao.GetAsync(bridgeDevice.IeeeAddress);
+                var existingDevice = await this.devicesDao.GetAsync(bridgeDevice.IeeeAddress, cancellationToken);
                 if (existingDevice == null)
-                    await this.NewDevice(bridgeDevice);
+                    await this.NewDevice(bridgeDevice, cancellationToken);
                 else await this.UpdateDevice(bridgeDevice);
             }
         }
@@ -152,7 +160,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
             throw new NotImplementedException();
         }
 
-        private async Task NewDevice(BridgeDevice bridgeDevice)
+        private async Task NewDevice(BridgeDevice bridgeDevice, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(bridgeDevice.IeeeAddress))
                 throw new ArgumentException("Device IEEE address is required.");
@@ -213,7 +221,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
                 }
             }
 
-            await this.deviceDiscoverHandler.HandleAsync(new DeviceDiscoveredCommand(deviceConfig));
+            await this.deviceDiscoverHandler.HandleAsync(new DeviceDiscoveredCommand(deviceConfig), cancellationToken);
             await this.RefreshDeviceAsync(deviceConfig);
         }
 
@@ -265,11 +273,11 @@ namespace Signal.Beacon.Zigbee2Mqtt
                 _ => null
             };
 
-        private async Task PublishStateAsync(string deviceIdentifier, string contactName, string value)
+        private async Task PublishStateAsync(string deviceIdentifier, string contactName, string value, CancellationToken cancellationToken)
         {
             try
             {
-                var device = await this.devicesDao.GetAsync(deviceIdentifier);
+                var device = await this.devicesDao.GetAsync(deviceIdentifier, cancellationToken);
                 if (device == null)
                     throw new Exception($"Device with identifier {deviceIdentifier} not found.");
 

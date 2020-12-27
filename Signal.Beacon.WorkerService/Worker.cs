@@ -1,35 +1,119 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Threading;
 using System.Threading.Tasks;
-using Signal.Beacon.Core.MessageQueue;
+using Newtonsoft.Json;
+using Signal.Beacon.Core.Configuration;
+using Signal.Beacon.Core.Signal;
 using Signal.Beacon.Core.Workers;
 
 namespace Signal.Beacon.WorkerService
 {
     public class Worker : BackgroundService
     {
-        private readonly IMqttClient mqttClient;
+        private readonly ISignalClient signalClient;
         private readonly Lazy<IEnumerable<IWorkerService>> workerServices;
+        private readonly IConfigurationService configurationService;
         private readonly ILogger<Worker> logger;
-        
+
         public Worker(
-            IMqttClient mqttClient,
+            ISignalClient signalClient,
             Lazy<IEnumerable<IWorkerService>> workerServices, 
+            IConfigurationService configurationService,
             ILogger<Worker> logger)
         {
-            this.mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
+            this.signalClient = signalClient ?? throw new ArgumentNullException(nameof(signalClient));
             this.workerServices = workerServices ?? throw new ArgumentNullException(nameof(workerServices));
+            this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
             this.logger = logger;
+        }
+
+        public class BeaconConfiguration
+        {
+            public string? Identifier { get; set; }
+            public AuthToken? Token {get;set;}
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await this.mqttClient.StartAsync(stoppingToken);
+            // Load configuration
+            var config = await this.configurationService.LoadAsync<BeaconConfiguration>("beacon.json", stoppingToken);
+            if (config.Token == null)
+            {
+                this.logger.LogInformation("Beacon not registered. Started registration...");
+                
+                try
+                {
+                    // Assign identifier to Beacon
+                    if (string.IsNullOrWhiteSpace(config.Identifier))
+                    {
+                        config.Identifier = Guid.NewGuid().ToString();
+                        await this.configurationService.SaveAsync("beacon.json", config, stoppingToken);
+                    }
 
-            foreach (var workerService in this.workerServices.Value)
+                    // Authorize Beacon
+                    var deviceCodeResponse = await new Auth0DeviceAuthorization().GetDeviceCodeAsync(stoppingToken);
+                    this.logger.LogInformation("Device auth: {Response}",
+                        JsonConvert.SerializeObject(deviceCodeResponse));
+                    
+                    // TODO: Post device flow request to user (CTA)
+                    
+                    var token = await new Auth0DeviceAuthorization().WaitTokenAsync(deviceCodeResponse, stoppingToken);
+                    this.logger.LogInformation("Authorized successfully.");
+
+                    // Register Beacon
+                    this.signalClient.AssignToken(token);
+                    await this.signalClient.RegisterBeaconAsync(config.Identifier, stoppingToken);
+
+                    config.Token = token;
+                    await this.configurationService.SaveAsync("beacon.json", config, stoppingToken);
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogError(ex, "Failed to register Beacon. Some functionality will be limited.");
+                }
+            }
+            else
+            {
+                this.signalClient.AssignToken(config.Token);
+            }
+
+            // Start worker services
+            await Task.WhenAll(this.workerServices.Value.Select(ws => this.StartWorkerService(ws, stoppingToken)));
+            
+            this.logger.LogInformation("All worker services started.");
+
+            // Wait for cancellation token
+            while (!stoppingToken.IsCancellationRequested)
+                await Task.Delay(-1, stoppingToken);
+
+            // Stop services
+            await Task.WhenAll(this.workerServices.Value.Select(this.StopWorkerService));
+        }
+
+        private Task StopWorkerService(IWorkerService workerService)
+        {
+            return Task.Run(async () =>
+            {
+                try
+                {
+                    this.logger.LogInformation("Stopping {WorkerServiceName}...", workerService.GetType().Name);
+                    await workerService.StopAsync(CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogError(ex, "Service {WorkerServiceName} stopping timed out.",
+                        workerService.GetType().Name);
+                }
+            });
+        }
+
+        private Task StartWorkerService(IWorkerService workerService, CancellationToken stoppingToken)
+        {
+            return Task.Run(async () =>
             {
                 try
                 {
@@ -38,14 +122,10 @@ namespace Signal.Beacon.WorkerService
                 }
                 catch (Exception ex)
                 {
-                    this.logger.LogError(ex, "Failed to start worker service {WorkerServiceName}", workerService.GetType().Name);
+                    this.logger.LogError(ex, "Failed to start worker service {WorkerServiceName}",
+                        workerService.GetType().Name);
                 }
-            }
-
-            this.logger.LogInformation("All worker services started.");
-
-            while (!stoppingToken.IsCancellationRequested) 
-                await Task.Delay(1000, stoppingToken);
+            }, stoppingToken);
         }
     }
 }
