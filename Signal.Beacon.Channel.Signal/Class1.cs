@@ -59,7 +59,7 @@ namespace Signal.Beacon.Channel.Signal
         
         public async Task DevicesPublishStateAsync(DeviceTarget target, object? value, DateTime timeStamp, CancellationToken cancellationToken)
         {
-            var (identifier, contact, channel) = target;
+            var (channel, identifier, contact) = target;
             var data = new SignalDeviceStatePublishDto
             {
                 DeviceIdentifier = identifier,

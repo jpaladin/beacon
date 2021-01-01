@@ -46,13 +46,13 @@ namespace Signal.Beacon.Api.Controllers.V1
         [HttpGet]
         [Route("device-state-history")]
         public async Task<IEnumerable<IHistoricalValue>?> GetDeviceStateHistoryAsync(string identifier, string contact, DateTime startTimeStamp, DateTime endTimeStamp, CancellationToken cancellationToken) => 
-            await this.devicesDao.GetStateHistoryAsync(new DeviceTarget(identifier, contact), startTimeStamp, endTimeStamp, cancellationToken);
+            await this.devicesDao.GetStateHistoryAsync(new DeviceContactTarget(identifier, contact), startTimeStamp, endTimeStamp, cancellationToken);
 
         [HttpGet]
         [Route("device-state")]
         public async Task<string?> GetDeviceStateAsync(string identifier, string contact, CancellationToken cancellationToken)
         {
-            var value = await this.devicesDao.GetStateAsync(new DeviceTarget(identifier, contact), cancellationToken);
+            var value = await this.devicesDao.GetStateAsync(new DeviceContactTarget(identifier, contact), cancellationToken);
             return value == null ? null : JsonSerializer.Serialize(value, value.GetType());
         }
 

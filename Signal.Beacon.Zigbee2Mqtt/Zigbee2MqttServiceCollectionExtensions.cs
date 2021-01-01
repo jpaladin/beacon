@@ -10,7 +10,8 @@ namespace Signal.Beacon.Zigbee2Mqtt
         {
             return services
                 .AddSingleton<IWorkerService, Zigbee2MqttWorkerService>()
-                .AddSingleton<IMqttClient, MqttClient>();
+                .AddSingleton<IZigbee2MqttClientFactory, Zigbee2MqttClientFactory>()
+                .AddTransient<IMqttClient, MqttClient>();
         }
     }
 }

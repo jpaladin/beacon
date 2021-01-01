@@ -48,10 +48,10 @@ namespace Signal.Beacon.Application
             return this.devices?.Values.AsEnumerable() ?? Enumerable.Empty<DeviceConfiguration>();
         }
 
-        public Task<IEnumerable<IHistoricalValue>?> GetStateHistoryAsync(DeviceTarget deviceTarget, DateTime startTimeStamp, DateTime endTimeStamp, CancellationToken cancellationToken) => 
+        public Task<IEnumerable<IHistoricalValue>?> GetStateHistoryAsync(DeviceContactTarget deviceTarget, DateTime startTimeStamp, DateTime endTimeStamp, CancellationToken cancellationToken) => 
             this.deviceStateManager.GetStateHistoryAsync(deviceTarget, startTimeStamp, endTimeStamp);
 
-        public Task<object?> GetStateAsync(DeviceTarget deviceTarget, CancellationToken cancellationToken) => 
+        public Task<object?> GetStateAsync(DeviceContactTarget deviceTarget, CancellationToken cancellationToken) => 
             this.deviceStateManager.GetStateAsync(deviceTarget);
 
         public async Task UpdateDeviceAsync(string deviceIdentifier, DeviceConfiguration deviceConfiguration, CancellationToken cancellationToken)

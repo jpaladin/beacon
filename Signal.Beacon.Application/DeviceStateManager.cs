@@ -16,8 +16,8 @@ namespace Signal.Beacon.Application
     {
         private readonly ISignalClient signalClient;
         private readonly ILogger<DeviceStateManager> logger;
-        private readonly ConcurrentDictionary<DeviceTarget, object?> states = new();
-        private readonly ConcurrentDictionary<DeviceTarget, ICollection<IHistoricalValue>> statesHistory = new();
+        private readonly ConcurrentDictionary<DeviceContactTarget, object?> states = new();
+        private readonly ConcurrentDictionary<DeviceContactTarget, ICollection<IHistoricalValue>> statesHistory = new();
 
 
         public DeviceStateManager(
@@ -71,15 +71,18 @@ namespace Signal.Beacon.Application
             return setValue;
         }
 
-        public async Task<IEnumerable<IHistoricalValue>?> GetStateHistoryAsync(
-            DeviceTarget target,
+        public Task<IEnumerable<IHistoricalValue>?> GetStateHistoryAsync(
+            DeviceContactTarget target,
             DateTime startTimeStamp, 
             DateTime endTimeStamp) =>
             this.statesHistory.TryGetValue(target, out var history)
-                ? history.Where(hv => hv.TimeStamp >= startTimeStamp && hv.TimeStamp <= endTimeStamp)
-                : null;
+                // ReSharper disable once ConstantConditionalAccessQualifier
+                ? Task.FromResult(history?.Where(hv => hv.TimeStamp >= startTimeStamp && hv.TimeStamp <= endTimeStamp))
+                : Task.FromResult<IEnumerable<IHistoricalValue>?>(null);
 
-        public Task<object?> GetStateAsync(DeviceTarget target) => 
-            this.states.TryGetValue(target, out var state) ? Task.FromResult(state) : Task.FromResult<object?>(null);
+        public Task<object?> GetStateAsync(DeviceContactTarget target) =>
+            this.states.TryGetValue(target, out var state)
+                ? Task.FromResult(state)
+                : Task.FromResult<object?>(null);
     }
 }

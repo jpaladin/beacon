@@ -1,0 +1,14 @@
+using System.Collections.Generic;
+
+namespace Signal.Beacon.Zigbee2Mqtt
+{
+    internal class Zigbee2MqttWorkerServiceConfiguration
+    {
+        public List<MqttServer> Servers { get; set; } = new();
+
+        public class MqttServer
+        {
+            public string? Url { get; set; }
+        }
+    }
+}

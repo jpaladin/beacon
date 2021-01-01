@@ -11,11 +11,10 @@ namespace Signal.Beacon.Application
     {
         Task SetStateAsync(DeviceTarget target, object? value, CancellationToken cancellationToken);
 
-        Task<object?> GetStateAsync(DeviceTarget target);
+        Task<object?> GetStateAsync(DeviceContactTarget target);
 
-        Task<IEnumerable<IHistoricalValue>?> GetStateHistoryAsync(
-            DeviceTarget target,
-            DateTime startTimeStamp, 
+        Task<IEnumerable<IHistoricalValue>?> GetStateHistoryAsync(DeviceContactTarget target,
+            DateTime startTimeStamp,
             DateTime endTimeStamp);
     }
 }

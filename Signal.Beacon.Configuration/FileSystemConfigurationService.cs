@@ -48,8 +48,17 @@ namespace Signal.Beacon.Configuration
         public async Task SaveAsync<T>(string name, T config, CancellationToken cancellationToken) =>
             await this.SaveToFileSystemAsync(name, config, cancellationToken);
 
-        private async Task SaveToFileSystemAsync<T>(string path, T config, CancellationToken cancellationToken) => 
-            await File.WriteAllTextAsync(AsAbsolutePath(path), JsonConvert.SerializeObject(config, this.serializationSettings), cancellationToken);
+        private async Task SaveToFileSystemAsync<T>(string path, T config, CancellationToken cancellationToken)
+        {
+            var absolutePath = AsAbsolutePath(path);
+            
+            // Create directory if applicable
+            if (Path.GetDirectoryName(absolutePath) is { } absolutePathDirectory)
+                Directory.CreateDirectory(absolutePathDirectory);
+
+            await File.WriteAllTextAsync(absolutePath,
+                JsonConvert.SerializeObject(config, this.serializationSettings), cancellationToken);
+        }
 
         private async Task<T> LoadFromFileSystemAsync<T>(string path, CancellationToken cancellationToken)
             where T : new()

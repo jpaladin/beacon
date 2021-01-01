@@ -117,7 +117,7 @@ namespace Signal.Beacon.Zigbee2Mqtt.MessageQueue
 
         private Task DisconnectedHandler(MqttClientDisconnectedEventArgs arg)
         {
-            this.logger.LogWarning(arg.Exception, "MQTT connection closed.");
+            this.logger.LogInformation(arg.Exception, "MQTT connection closed.");
             return Task.CompletedTask;
         }
 

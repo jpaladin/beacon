@@ -40,7 +40,7 @@ namespace Signal.Beacon.WorkerService
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // Load configuration
-            var config = await this.configurationService.LoadAsync<BeaconConfiguration>("beacon.json", stoppingToken);
+            var config = await this.configurationService.LoadAsync<BeaconConfiguration>("Beacon.json", stoppingToken);
             if (config.Token == null)
             {
                 this.logger.LogInformation("Beacon not registered. Started registration...");

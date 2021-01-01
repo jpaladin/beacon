@@ -7,7 +7,9 @@ using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Signal.Beacon.Core.Conducts;
+using Signal.Beacon.Core.Configuration;
 using Signal.Beacon.Core.Devices;
+using Signal.Beacon.Core.Network;
 using Signal.Beacon.Core.Workers;
 using Signal.Beacon.Zigbee2Mqtt.MessageQueue;
 
@@ -16,56 +18,147 @@ namespace Signal.Beacon.Zigbee2Mqtt
     internal class Zigbee2MqttWorkerService : IWorkerService
     {
         private const string MqttTopicSubscription = "zigbee2mqtt/#";
+        private const string ConfigurationFileName = "Zigbee2mqtt.json";
+        private const int MqttClientStartRetryDelay = 10000;
 
         private readonly IDevicesDao devicesDao;
         private readonly ICommandHandler<DeviceStateSetCommand> deviceSetStateHandler;
         private readonly ICommandHandler<DeviceDiscoveredCommand> deviceDiscoverHandler;
-        private readonly IMqttClient mqttClient;
+        private readonly IZigbee2MqttClientFactory mqttClientFactory;
+        private readonly IConfigurationService configurationService;
+        private readonly IHostInfoService hostInfoService;
         private readonly ILogger<Zigbee2MqttWorkerService> logger;
 
         private readonly CancellationTokenSource cts = new();
+
+        private readonly List<IMqttClient> clients = new();
+        private Zigbee2MqttWorkerServiceConfiguration configuration = new();
+        private CancellationToken startCancellationToken = CancellationToken.None;
 
 
         public Zigbee2MqttWorkerService(
             IDevicesDao devicesDao,
             ICommandHandler<DeviceStateSetCommand> devicesService,
             ICommandHandler<DeviceDiscoveredCommand> deviceDiscoverHandler,
-            IMqttClient mqttClient,
+            IZigbee2MqttClientFactory mqttClientFactory,
+            IConfigurationService configurationService,
+            IHostInfoService hostInfoService,
             ILogger<Zigbee2MqttWorkerService> logger)
         {
             this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
             this.deviceSetStateHandler = devicesService ?? throw new ArgumentNullException(nameof(devicesService));
             this.deviceDiscoverHandler = deviceDiscoverHandler;
-            this.mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
+            this.mqttClientFactory = mqttClientFactory ?? throw new ArgumentNullException(nameof(mqttClientFactory));
+            this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
+            this.hostInfoService = hostInfoService ?? throw new ArgumentNullException(nameof(hostInfoService));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            await this.mqttClient.StartAsync("192.168.0.5", cancellationToken);
+            this.startCancellationToken = cancellationToken;
+            this.configuration =
+                await this.configurationService.LoadAsync<Zigbee2MqttWorkerServiceConfiguration>(
+                    ConfigurationFileName,
+                    cancellationToken);
 
-            await this.mqttClient.SubscribeAsync(MqttTopicSubscription, m => this.MessageHandler(m, this.cts.Token));
-            
-            await this.mqttClient.PublishAsync("zigbee2mqtt/bridge/config/devices/get", null);
-            await this.mqttClient.PublishAsync("zigbee2mqtt/bridge/config/permit_join", "false");
+            if (this.configuration.Servers.Any())
+                foreach (var mqttServerConfig in this.configuration.Servers.ToList())
+                    this.StartMqttClient(mqttServerConfig);
+            else
+            {
+                _ = this.DiscoverMqttBrokersAsync(cancellationToken);
+            }
+        }
+
+        private async Task DiscoverMqttBrokersAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                var ipAddressesInRange = IPHelper.GetIPAddressesInRange(IPHelper.GetLocalIp());
+                var applicableHosts =
+                    await this.hostInfoService.HostsAsync(ipAddressesInRange, new[] {1883}, cancellationToken);
+                var brokerHost = applicableHosts.FirstOrDefault(h => h.OpenPorts.Any());
+                if (brokerHost == null)
+                {
+                    this.logger.LogWarning("MQTT broker not configured and couldn't discover any.");
+                    return;
+                }
+
+                try
+                {
+                    this.logger.LogInformation("Discovered possible MQTT broker on {IpAddress}. Connecting...",
+                        brokerHost.IpAddress);
+
+                    using var client = this.mqttClientFactory.Create();
+                    await client.StartAsync(brokerHost.IpAddress, cancellationToken);
+                    await client.StopAsync(cancellationToken);
+
+                    // Save configuration for discovered broker
+                    var config = new Zigbee2MqttWorkerServiceConfiguration.MqttServer
+                    {
+                        Url = brokerHost.IpAddress
+                    };
+                    this.configuration.Servers.Add(config);
+                    await this.configurationService.SaveAsync(ConfigurationFileName, this.configuration,
+                        cancellationToken);
+
+                    // Connect to it
+                    this.StartMqttClient(config);
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogWarning(
+                        ex,
+                        "Failed to connect to discovered MQTT broker on {IpAddress}",
+                        brokerHost.IpAddress);
+                }
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogWarning(ex, "MQTT broker discovery failed.");
+            }
+        }
+
+        private async void StartMqttClient(Zigbee2MqttWorkerServiceConfiguration.MqttServer mqttServerConfig)
+        {
+            try
+            {
+                var client = this.mqttClientFactory.Create();
+
+                if (string.IsNullOrWhiteSpace(mqttServerConfig.Url))
+                {
+                    this.logger.LogWarning("MQTT Server has invalid URL: {Url}", mqttServerConfig.Url);
+                    return;
+                }
+
+                await client.StartAsync(mqttServerConfig.Url, this.startCancellationToken);
+                await client.SubscribeAsync(
+                    MqttTopicSubscription,
+                    m => this.MessageHandler(m, this.cts.Token));
+                await client.PublishAsync("zigbee2mqtt/bridge/config/devices/get", null);
+                await client.PublishAsync("zigbee2mqtt/bridge/config/permit_join", "false");
+
+                this.clients.Add(client);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "Failed to start MQTT client on URL: {Url}. Retry in {MqttClientStartRetryDelay}ms", mqttServerConfig.Url, MqttClientStartRetryDelay);
+                await Task
+                    .Delay(MqttClientStartRetryDelay, this.startCancellationToken)
+                    .ContinueWith(_ => this.StartMqttClient(mqttServerConfig), this.startCancellationToken);
+            }
         }
 
         public async Task StopAsync(CancellationToken cancellationToken)
         {
             this.cts.Cancel();
-            await this.mqttClient.StopAsync(cancellationToken);
+            await Task.WhenAll(this.clients.Select(c => c.StopAsync(cancellationToken)));
         }
 
-        private async Task ConductHandler(MqttMessage arg, CancellationToken cancellationToken)
+        private async Task ConductHandler(Conduct conduct, CancellationToken cancellationToken)
         {
-            if (arg == null) throw new ArgumentNullException(nameof(arg));
-            if (string.IsNullOrWhiteSpace(arg.Payload))
-                throw new ArgumentNullException(nameof(arg.Payload), "Conduct payload is null.");
-
-            var conduct = JsonConvert.DeserializeObject<Conduct>(arg.Payload);
-            if (conduct.Target == null ||
-                conduct.Target.Contact == null)
+            if (conduct.Target == null)
             {
                 this.logger.LogWarning("Conduct contact is null. Conduct: {@Conduct}", conduct);
                 return;
@@ -105,7 +198,6 @@ namespace Signal.Beacon.Zigbee2Mqtt
                 return;
             }
 
-            var deviceTarget = new DeviceTarget(device.Identifier);
             var inputs = device.Endpoints.SelectMany(e => e.Inputs).ToList();
             if (!inputs.Any())
             {
@@ -121,7 +213,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
                 if (input == null)
                     continue;
                 
-                var target = deviceTarget with {Contact = jProperty.Name};
+                var target = new DeviceTarget(Zigbee2MqttChannels.DeviceChannel, device.Identifier, jProperty.Name);
                 var value = jProperty.Value.Value<string>();
                 var dataType = input.DataType;
                 var mappedValue = MapZ2MValueToValue(dataType, value);
@@ -215,7 +307,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
                     {
                         deviceConfig.Endpoints = new List<DeviceEndpoint>
                         {
-                            new("main", inputs, outputs)
+                            new(Zigbee2MqttChannels.DeviceChannel, inputs, outputs)
                         };
                     }
                 }
@@ -227,12 +319,42 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
         private async Task RefreshDeviceAsync(DeviceConfiguration device)
         {
-            var inputContacts =
-                device.Endpoints.SelectMany(e => e.Inputs.Where(i => !i.IsReadonly).Select(ei => ei.Name));
-            foreach (var inputContact in inputContacts)
-                await this.mqttClient.PublishAsync(
-                    $"zigbee2mqtt/{device.Alias}/get",
-                    $"{{ \"{inputContact}\": \"\" }}");
+            try
+            {
+                var inputContacts =
+                    device.Endpoints.SelectMany(e => e.Inputs.Where(i => !i.IsReadonly).Select(ei => ei.Name));
+
+                // TODO: Publish only to specific client (that has device)
+
+                var topic = $"zigbee2mqtt/{device.Alias}/get";
+                var payload =
+                    $"{{ {string.Join(", ", inputContacts.Select(inputContact => $"\"{inputContact}\": \"\""))} }}";
+
+                await Task.WhenAll(this.clients.Select(c => c.PublishAsync(topic, payload)));
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "Failed to publish message.");
+            }
+        }
+
+        private async Task PublishStateAsync(string deviceIdentifier, string contactName, string value, CancellationToken cancellationToken)
+        {
+            try
+            {
+                var device = await this.devicesDao.GetAsync(deviceIdentifier, cancellationToken);
+                if (device == null)
+                    throw new Exception($"Device with identifier {deviceIdentifier} not found.");
+
+                // TODO: Publish only to specific client (that has device)
+
+                var topic = $"zigbee2mqtt/{device.Alias}/set/{contactName}";
+                await Task.WhenAll(this.clients.Select(c => c.PublishAsync(topic, value)));
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogError(ex, "Failed to publish message.");
+            }
         }
 
         private static object? MapZ2MValueToValue(string dataType, string? value)
@@ -246,23 +368,18 @@ namespace Signal.Beacon.Zigbee2Mqtt
             };
         }
 
-        private static object? ValueToNumeric(string? value)
-        {
-            if (double.TryParse(value, out var doubleValue))
-                return doubleValue;
-            return value;
-        }
+        private static object? ValueToNumeric(string? value) => 
+            double.TryParse(value, out var doubleValue) ? doubleValue : value;
 
-        private static object? ValueToBool(string? value)
-        {
-            if (bool.TryParse(value, out var boolVal))
-                return boolVal;
-            if (value?.ToLowerInvariant() == "on")
-                return true;
-            if (value?.ToLowerInvariant() == "off")
-                return false;
-            return value;
-        }
+        private static object? ValueToBool(string? value) =>
+            bool.TryParse(value, out var boolVal)
+                ? boolVal
+                : value?.ToLowerInvariant() switch
+                {
+                    "on" => true,
+                    "off" => false,
+                    _ => value
+                };
 
         private static string? MapZ2MTypeToDataType(string type) =>
             type switch
@@ -272,61 +389,5 @@ namespace Signal.Beacon.Zigbee2Mqtt
                 "enum" => "string",
                 _ => null
             };
-
-        private async Task PublishStateAsync(string deviceIdentifier, string contactName, string value, CancellationToken cancellationToken)
-        {
-            try
-            {
-                var device = await this.devicesDao.GetAsync(deviceIdentifier, cancellationToken);
-                if (device == null)
-                    throw new Exception($"Device with identifier {deviceIdentifier} not found.");
-
-                await this.mqttClient.PublishAsync($"zigbee2mqtt/{device.Alias}/set/{contactName}", value);
-            }
-            catch(Exception ex)
-            {
-                this.logger.LogError(ex, "Failed to publish message.");
-            }
-        }
-    }
-    
-    internal class BridgeDevice
-    {
-        [JsonProperty("ieee_address", NullValueHandling = NullValueHandling.Ignore)]
-        public string? IeeeAddress { get; set; }
-
-        [JsonProperty("friendly_name", NullValueHandling = NullValueHandling.Ignore)]
-        public string? FriendlyName { get; set;  }
-
-        public BridgeDeviceDefinition? Definition { get; set; }
-    }
-
-    internal class BridgeDeviceDefinition
-    {
-        public string? Model { get; set; }
-
-        public string? Vendor { get; set; }
-
-        public List<BridgeDeviceExposeFeature>? Exposes { get; set; }
-    }
-
-    [Flags]
-    internal enum BridgeDeviceExposeFeatureAccess
-    {
-        Unknown = 0,
-        Readonly = 0x1,
-        Write = 0x2,
-        Request = 0x4
-    }
-
-    internal class BridgeDeviceExposeFeature
-    {
-        public BridgeDeviceExposeFeatureAccess Access { get; set; }
-
-        public string? Property { get; set; }
-
-        public string? Type { get; set; }
-
-        public List<BridgeDeviceExposeFeature>? Features { get; set; }
     }
 }

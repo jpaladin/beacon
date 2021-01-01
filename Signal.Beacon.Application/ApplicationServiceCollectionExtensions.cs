@@ -1,7 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
+using Signal.Beacon.Application.Network;
 using Signal.Beacon.Core.Conditions;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Devices;
+using Signal.Beacon.Core.Network;
 using Signal.Beacon.Core.Processes;
 
 namespace Signal.Beacon.Application
@@ -20,6 +22,9 @@ namespace Signal.Beacon.Application
             services.AddSingleton<IProcessesRepository, ProcessesRepository>();
             services.AddSingleton<IDeviceStateManager, DeviceStateManager>();
             services.AddTransient<IConductService, ConductService>();
+
+            // Network
+            services.AddTransient<IHostInfoService, HostInfoService>();
 
             return services;
         }
