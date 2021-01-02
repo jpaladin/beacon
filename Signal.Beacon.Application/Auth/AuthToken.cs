@@ -11,10 +11,10 @@ namespace Signal.Beacon.Application.Auth
             this.Expire = expire;
         }
 
-        public string AccessToken { get; init; }
+        public string AccessToken { get; }
 
-        public string RefreshToken { get; set; }
+        public string RefreshToken { get; }
 
-        public DateTime Expire { get; set; }
+        public DateTime Expire { get; }
     }
 }

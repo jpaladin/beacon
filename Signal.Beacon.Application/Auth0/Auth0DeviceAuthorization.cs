@@ -18,7 +18,7 @@ namespace Signal.Beacon.Application.Auth0
         private const string ClientId = "dB5YR1dMiDHESOq3r6w7IP076kuQ9JXA";
         private const string Scope = "profile email offline_access";
         private const string Audience = "https://api.signal.dfnoise.com";
-
+        
         public async Task<DeviceCodeResponse> GetDeviceCodeAsync(CancellationToken cancellationToken)
         {
             using var response = await new HttpClient().PostAsync(DeviceCodeUrl, new FormUrlEncodedContent(
@@ -70,7 +70,7 @@ namespace Signal.Beacon.Application.Auth0
                     return new AuthToken(
                         token.AccessToken,
                         token.RefreshToken,
-                        DateTimeOffset.FromUnixTimeSeconds(token.ExpiresIn ?? 60).DateTime);
+                        DateTime.UtcNow.AddSeconds(token.ExpiresIn ?? 60));
                 }
 
                 var error = await response.Content.ReadFromJsonAsync<Auth0Error>(cancellationToken: cancellationToken);
@@ -85,23 +85,29 @@ namespace Signal.Beacon.Application.Auth0
 
             return null;
         }
-
+        
         private class Auth0Token
         {
-            [JsonPropertyName("access_token")] public string? AccessToken { get; set; }
+            [JsonPropertyName("access_token")] 
+            public string? AccessToken { get; set; }
 
-            [JsonPropertyName("refresh_token")] public string? RefreshToken { get; set; }
+            [JsonPropertyName("refresh_token")] 
+            public string? RefreshToken { get; set; }
 
-            [JsonPropertyName("id_token")] public string? IdToken { get; set; }
+            [JsonPropertyName("id_token")] 
+            public string? IdToken { get; set; }
 
-            [JsonPropertyName("token_type")] public string? TokenType { get; set; }
+            [JsonPropertyName("token_type")] 
+            public string? TokenType { get; set; }
 
-            [JsonPropertyName("expires_in")] public int? ExpiresIn { get; set; }
+            [JsonPropertyName("expires_in")] 
+            public int? ExpiresIn { get; set; }
         }
 
         private class Auth0Error
         {
-            [JsonPropertyName("error")] public string Error { get; set; }
+            [JsonPropertyName("error")] 
+            public string Error { get; set; }
 
             [JsonPropertyName("error_description")]
             public string ErrorDescription { get; set; }
@@ -109,18 +115,23 @@ namespace Signal.Beacon.Application.Auth0
 
         private class Auth0DeviceCodeResponseDto
         {
-            [JsonPropertyName("device_code")] public string DeviceCode { get; set; }
+            [JsonPropertyName("device_code")] 
+            public string DeviceCode { get; set; }
 
-            [JsonPropertyName("user_code")] public string UserCode { get; set; }
+            [JsonPropertyName("user_code")] 
+            public string UserCode { get; set; }
 
-            [JsonPropertyName("verification_uri")] public string VerificationUri { get; set; }
+            [JsonPropertyName("verification_uri")] 
+            public string VerificationUri { get; set; }
 
             [JsonPropertyName("verification_uri_complete")]
             public string VerificationUriComplete { get; set; }
 
-            [JsonPropertyName("expires_in")] public int ExpiresIn { get; set; }
+            [JsonPropertyName("expires_in")] 
+            public int ExpiresIn { get; set; }
 
-            [JsonPropertyName("interval")] public int Interval { get; set; }
+            [JsonPropertyName("interval")] 
+            public int Interval { get; set; }
         }
     }
 }
