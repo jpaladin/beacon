@@ -19,6 +19,7 @@ namespace Signal.Beacon.Core.Signal
     public interface ISignalClient
     {
         void AssignToken(AuthToken token);
+
         Task RegisterBeaconAsync(string beaconId, CancellationToken cancellationToken);
 
         Task DevicesPublishStateAsync(DeviceTarget target, object? setValue, DateTime timeStamp,
@@ -39,9 +40,16 @@ namespace Signal.Beacon.Core.Signal
     
     public class AuthToken
     {
+        public AuthToken(string accessToken, string refreshToken, DateTime expire)
+        {
+            this.AccessToken = accessToken;
+            this.RefreshToken = refreshToken;
+            this.Expire = expire;
+        }
+
         public string AccessToken { get; init; }
         
-        public string? RefreshToken { get; set; }
+        public string RefreshToken { get; set; }
         
         public DateTime Expire { get; set; }
     }
@@ -52,7 +60,7 @@ namespace Signal.Beacon.Core.Signal
         private const string DeviceTokenUrl = "https://dfnoise.eu.auth0.com/oauth/token";
         private const string GrantType = "urn:ietf:params:oauth:grant-type:device_code";
         private const string ClientId = "dB5YR1dMiDHESOq3r6w7IP076kuQ9JXA";
-        private const string Scope = "profile,email,offline_access";
+        private const string Scope = "profile email offline_access";
         private const string Audience = "https://api.signal.dfnoise.com";
         
         public async Task<DeviceCodeResponse> GetDeviceCodeAsync(CancellationToken cancellationToken)
@@ -61,7 +69,7 @@ namespace Signal.Beacon.Core.Signal
             {
                 new("client_id", ClientId ),
                 new("scope", Scope ),
-                new("audience", Audience )
+                new("audience", Audience ),
             }), cancellationToken);
             
             var content = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -93,15 +101,17 @@ namespace Signal.Beacon.Core.Signal
                 if (response.IsSuccessStatusCode)
                 {
                     var token = await response.Content.ReadFromJsonAsync<Auth0Token>(cancellationToken: cancellationToken);
-                    if (string.IsNullOrWhiteSpace(token?.AccessToken))
+                    if (token == null)
+                        throw new Exception("Didn't get token.");
+                    if (string.IsNullOrWhiteSpace(token.AccessToken))
                         throw new Exception("Got invalid access token.");
-                    
-                    return new AuthToken
-                    {
-                        AccessToken = token.AccessToken,
-                        RefreshToken = token.RefreshToken,
-                        Expire = DateTimeOffset.FromUnixTimeSeconds(token.ExpiresIn ?? 60).DateTime
-                    };
+                    if (string.IsNullOrWhiteSpace(token.RefreshToken))
+                        throw new Exception("Didn't get refresh token.");
+
+                    return new AuthToken(
+                        token.AccessToken, 
+                        token.RefreshToken,
+                        DateTimeOffset.FromUnixTimeSeconds(token.ExpiresIn ?? 60).DateTime);
                 }
                 
                 var error = await response.Content.ReadFromJsonAsync<Auth0Error>(cancellationToken: cancellationToken);
