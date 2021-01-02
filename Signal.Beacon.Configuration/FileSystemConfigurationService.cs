@@ -19,12 +19,12 @@ namespace Signal.Beacon.Configuration
         {
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-            this.serializationSettings = new JsonSerializerSettings()
+            this.serializationSettings = new JsonSerializerSettings
             {
                 NullValueHandling = NullValueHandling.Include,
                 DefaultValueHandling = DefaultValueHandling.Populate,
             };
-            this.deserializationSettings = new JsonSerializerSettings()
+            this.deserializationSettings = new JsonSerializerSettings
             {
                 NullValueHandling = NullValueHandling.Include,
                 DefaultValueHandling = DefaultValueHandling.Populate,

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -51,9 +52,13 @@ namespace Signal.Beacon.Voice
                 throw new Exception("Couldn't determine Porcupine version.");
 
             // Locate profile file
-            var modelsAvailable = Directory.EnumerateFiles(Path.Combine(executionLocation, "Profiles/"), "*.ppn").ToList();
+            var osPlatform = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? "windows"
+                : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? "linux" : "mac";
+            var modelsAvailable = Directory.EnumerateFiles(Path.Combine(executionLocation,
+                $"resources/keyword_files/{osPlatform}/"), "*.ppn").ToList();
             var orderedModelsAvailable = modelsAvailable.OrderByDescending(m => m);
-            var matchingModelName = orderedModelsAvailable.FirstOrDefault();
+            var matchingModelName = orderedModelsAvailable.FirstOrDefault(m => m.Contains("computer"));
             if (matchingModelName == null)
                 throw new Exception(
                     $"Didn't match any valid Porcupine models. Available models: {string.Join(", ", modelsAvailable)}");
@@ -295,18 +300,26 @@ namespace Signal.Beacon.Voice
 
         private void InitializeSounds()
         {
-            var device = ALC.OpenDevice(null);
-            this.AlHasError();
-            this.alContext = ALC.CreateContext(device, new ALContextAttributes());
-            this.AlHasError();
+            try
+            {
+                var device = ALC.OpenDevice(null);
+                this.AlHasError();
+                this.alContext = ALC.CreateContext(device, new ALContextAttributes());
+                this.AlHasError();
 
-            // Set context
-            ALC.MakeContextCurrent(this.alContext.Value);
-            this.AlHasError();
+                // Set context
+                ALC.MakeContextCurrent(this.alContext.Value);
+                this.AlHasError();
 
-            // Generate source
-            this.alSource = AL.GenSource();
-            this.AlHasError();
+                // Generate source
+                this.alSource = AL.GenSource();
+                this.AlHasError();
+            }
+            catch (DllNotFoundException ex) when (ex.Message.Contains("Could not load the dll 'openal32.dll'"))
+            {
+                this.logger.LogError(
+                    "Looks like OpenAL is not installed on this system. You can download it from https://www.openal.org/downloads/ or see more info on installing it there.");
+            }
         }
 
         private async Task TryCacheSoundAsync(string text)

@@ -4,8 +4,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using Signal.Beacon.Api.Dtos;
-using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.Processes;
 using Signal.Beacon.Core.Values;
@@ -18,16 +16,13 @@ namespace Signal.Beacon.Api.Controllers.V1
     {
         private readonly IDevicesDao devicesDao;
         private readonly IProcessesDao processesDao;
-        private readonly IConductService conductService;
 
         public BeaconController(
             IDevicesDao devicesDao,
-            IProcessesDao processesDao,
-            IConductService conductService)
+            IProcessesDao processesDao)
         {
             this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
             this.processesDao = processesDao ?? throw new ArgumentNullException(nameof(processesDao));
-            this.conductService = conductService ?? throw new ArgumentNullException(nameof(conductService));
         }
         
         [HttpGet]
@@ -55,11 +50,6 @@ namespace Signal.Beacon.Api.Controllers.V1
             var value = await this.devicesDao.GetStateAsync(new DeviceContactTarget(identifier, contact), cancellationToken);
             return value == null ? null : JsonSerializer.Serialize(value, value.GetType());
         }
-
-        [HttpPost]
-        [Route("conduct")]
-        public async Task PublishConductAsync(ConductDto conduct, CancellationToken cancellationToken) =>
-            await this.conductService.PublishConductsAsync(new[] {new Conduct(conduct.Target, conduct.Value)}, cancellationToken);
 
         [HttpGet]
         [Route("processes")]

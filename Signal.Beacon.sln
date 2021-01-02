@@ -17,8 +17,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Core", "Signa
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Configuration", "Signal.Beacon.Configuration\Signal.Beacon.Configuration.csproj", "{30C8555B-C835-42E6-B92F-7BB0060F5B2D}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Processor", "Signal.Beacon.Processor\Signal.Beacon.Processor.csproj", "{97850EC1-856B-4900-9867-6B61679612CA}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Application", "Signal.Beacon.Application\Signal.Beacon.Application.csproj", "{42B4DD12-8328-4444-BB15-685812B3FDF3}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.PhilipsHue", "Signal.Beacon.PhilipsHue\Signal.Beacon.PhilipsHue.csproj", "{3F45A199-EDD7-439D-937A-D2CAE36DC66C}"
@@ -29,7 +27,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Voice", "Sign
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Channel.Signal", "Signal.Beacon.Channel.Signal\Signal.Beacon.Channel.Signal.csproj", "{90595897-1E5C-4CE5-9257-9B5E48B51020}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Signal.Beacon.Channel.BroadLink", "Signal.Beacon.Channel.BroadLink\Signal.Beacon.Channel.BroadLink.csproj", "{152E7409-3F61-472C-B18C-3A72C7268601}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Channel.BroadLink", "Signal.Beacon.Channel.BroadLink\Signal.Beacon.Channel.BroadLink.csproj", "{152E7409-3F61-472C-B18C-3A72C7268601}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -53,10 +51,6 @@ Global
 		{30C8555B-C835-42E6-B92F-7BB0060F5B2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{30C8555B-C835-42E6-B92F-7BB0060F5B2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{30C8555B-C835-42E6-B92F-7BB0060F5B2D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{97850EC1-856B-4900-9867-6B61679612CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{97850EC1-856B-4900-9867-6B61679612CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{97850EC1-856B-4900-9867-6B61679612CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{97850EC1-856B-4900-9867-6B61679612CA}.Release|Any CPU.Build.0 = Release|Any CPU
 		{42B4DD12-8328-4444-BB15-685812B3FDF3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{42B4DD12-8328-4444-BB15-685812B3FDF3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{42B4DD12-8328-4444-BB15-685812B3FDF3}.Release|Any CPU.ActiveCfg = Release|Any CPU

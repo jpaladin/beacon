@@ -1,23 +1,18 @@
 using System.Collections.Generic;
-using System.Linq;
 using Signal.Beacon.Core.Conditions;
 using Signal.Beacon.Core.Conducts;
+using Signal.Beacon.Core.Devices;
 
 namespace Signal.Beacon.Core.Processes
 {
     public class Process
     {
-        public string Name { get; }
+        public string Name { get; set; }
 
-        public Condition Condition { get; }
+        public IEnumerable<DeviceTarget> Triggers { get; set; }
 
-        public IEnumerable<Conduct> Conducts { get; }
+        public Condition Condition { get; set; }
 
-        public Process(string name, Condition condition, params Conduct[] conducts)
-        {
-            this.Name = name;
-            this.Condition = condition;
-            this.Conducts = conducts.ToList();
-        }
+        public IEnumerable<Conduct> Conducts { get; set; }
     }
 }

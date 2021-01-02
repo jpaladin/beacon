@@ -5,6 +5,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Signal.Beacon.Application.Conducts;
+using Signal.Beacon.Application.PubSub;
 using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.Extensions;
 using Signal.Beacon.Core.Signal;
@@ -14,6 +16,7 @@ namespace Signal.Beacon.Application
 {
     public class DeviceStateManager : IDeviceStateManager
     {
+        private readonly IPubSubHub<DeviceTarget> deviceStateHub;
         private readonly ISignalClient signalClient;
         private readonly ILogger<DeviceStateManager> logger;
         private readonly ConcurrentDictionary<DeviceContactTarget, object?> states = new();
@@ -22,12 +25,17 @@ namespace Signal.Beacon.Application
 
         public DeviceStateManager(
             ISignalClient signalClient,
+            IPubSubHub<DeviceTarget> deviceStateHub,
             ILogger<DeviceStateManager> logger)
         {
+            this.deviceStateHub = deviceStateHub ?? throw new ArgumentNullException(nameof(deviceStateHub));
             this.signalClient = signalClient ?? throw new ArgumentNullException(nameof(signalClient));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+
+        public IDisposable Subscribe(Func<DeviceTarget, CancellationToken, Task> handler) => 
+            this.deviceStateHub.Subscribe(this, handler);
 
         public async Task SetStateAsync(DeviceTarget target, object? value, CancellationToken cancellationToken)
         {
@@ -49,10 +57,19 @@ namespace Signal.Beacon.Application
             this.states.AddOrSet(target, setValue);
             this.statesHistory.Append(target, new HistoricalValue(setValue, timeStamp));
 
-            // TODO: Publish state changed to local workers
+            // Publish state changed to local workers
+            await this.deviceStateHub.PublishAsync(new[] {target}, cancellationToken);
 
-            await this.signalClient.DevicesPublishStateAsync(target, setValue, timeStamp, cancellationToken);
-            
+            // Publish state changed to Signal API
+            try
+            {
+                await this.signalClient.DevicesPublishStateAsync(target, setValue, timeStamp, cancellationToken);
+            }
+            catch (Exception ex) when (ex.Message.Contains("IDX10223"))
+            {
+                this.logger.LogWarning("Failed to push device state update to Signal - Token expired.");
+            }
+
             this.logger.LogDebug(
                 "Device state updated - {DeviceId} {Contact}: {Value}", 
                 target.Identifier, 

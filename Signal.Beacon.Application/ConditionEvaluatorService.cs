@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Signal.Beacon.Core.Conditions;
+using Signal.Beacon.Core.Conducts;
+using Signal.Beacon.Core.Extensions;
 
 namespace Signal.Beacon.Application
 {
@@ -30,6 +33,7 @@ namespace Signal.Beacon.Application
                     return conditionValueComparison.ValueOperation switch
                     {
                         ConditionValueOperation.Equal => leftResult == rightResult || leftResult != null && leftResult.Equals(rightResult),
+                        ConditionValueOperation.EqualOrNull => leftResult == rightResult || leftResult != null && leftResult.Equals(rightResult) || leftResult == null && rightResult != null || leftResult != null && rightResult == null,
                         _ => throw new NotSupportedException($"Not supported value provider: {conditionValueComparison.ValueOperation}")
                     };
                 }
@@ -79,7 +83,7 @@ namespace Signal.Beacon.Application
                     return result ?? throw new Exception("Condition evaluation failed. Result is null.");
                 }
                 default:
-                    throw new NotSupportedException($"Not supported condition comparison: {comparable.GetType().FullName}");
+                    throw new NotSupportedException($"Not supported condition comparison: {comparable?.GetType().FullName ?? "Comparable is null"}");
             }
         }
     }

@@ -9,6 +9,8 @@ namespace Signal.Beacon.Application
 {
     public interface IDeviceStateManager
     {
+        IDisposable Subscribe(Func<DeviceTarget, CancellationToken, Task> handler);
+
         Task SetStateAsync(DeviceTarget target, object? value, CancellationToken cancellationToken);
 
         Task<object?> GetStateAsync(DeviceContactTarget target);

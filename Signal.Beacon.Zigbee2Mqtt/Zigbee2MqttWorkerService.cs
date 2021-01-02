@@ -24,6 +24,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
         private readonly IDevicesDao devicesDao;
         private readonly ICommandHandler<DeviceStateSetCommand> deviceSetStateHandler;
         private readonly ICommandHandler<DeviceDiscoveredCommand> deviceDiscoverHandler;
+        private readonly IConductSubscriberClient conductSubscriberClient;
         private readonly IZigbee2MqttClientFactory mqttClientFactory;
         private readonly IConfigurationService configurationService;
         private readonly IHostInfoService hostInfoService;
@@ -40,6 +41,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
             IDevicesDao devicesDao,
             ICommandHandler<DeviceStateSetCommand> devicesService,
             ICommandHandler<DeviceDiscoveredCommand> deviceDiscoverHandler,
+            IConductSubscriberClient conductSubscriberClient,
             IZigbee2MqttClientFactory mqttClientFactory,
             IConfigurationService configurationService,
             IHostInfoService hostInfoService,
@@ -47,7 +49,8 @@ namespace Signal.Beacon.Zigbee2Mqtt
         {
             this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
             this.deviceSetStateHandler = devicesService ?? throw new ArgumentNullException(nameof(devicesService));
-            this.deviceDiscoverHandler = deviceDiscoverHandler;
+            this.deviceDiscoverHandler = deviceDiscoverHandler ?? throw new ArgumentNullException(nameof(deviceDiscoverHandler));
+            this.conductSubscriberClient = conductSubscriberClient ?? throw new ArgumentNullException(nameof(conductSubscriberClient));
             this.mqttClientFactory = mqttClientFactory ?? throw new ArgumentNullException(nameof(mqttClientFactory));
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
             this.hostInfoService = hostInfoService ?? throw new ArgumentNullException(nameof(hostInfoService));
@@ -69,6 +72,8 @@ namespace Signal.Beacon.Zigbee2Mqtt
             {
                 _ = this.DiscoverMqttBrokersAsync(cancellationToken);
             }
+
+            this.conductSubscriberClient.Subscribe(Zigbee2MqttChannels.DeviceChannel, this.ConductHandler);
         }
 
         private async Task DiscoverMqttBrokersAsync(CancellationToken cancellationToken)
@@ -164,9 +169,11 @@ namespace Signal.Beacon.Zigbee2Mqtt
                 return;
             }
 
-            // TODO: Filter only Z2M devices
-
-            await this.PublishStateAsync(conduct.Target.Identifier, conduct.Target.Contact, conduct.Value.ToString()?.ToLowerInvariant() == "true" ? "ON" : "OFF", cancellationToken);
+            await this.PublishStateAsync(
+                conduct.Target.Identifier,
+                conduct.Target.Contact,
+                conduct.Value.ToString()?.ToLowerInvariant() == "true" ? "ON" : "OFF",
+                cancellationToken);
         }
 
         private async Task MessageHandler(MqttMessage message, CancellationToken cancellationToken)

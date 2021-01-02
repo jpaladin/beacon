@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Q42.HueApi;
 using Q42.HueApi.Interfaces;
+using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Configuration;
 using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.Workers;
@@ -18,6 +19,7 @@ namespace Signal.Beacon.PhilipsHue
     {
         private readonly ICommandHandler<DeviceStateSetCommand> deviceStateSerHandler;
         private readonly ICommandHandler<DeviceDiscoveredCommand> deviceDiscoveryHandler;
+        private readonly IConductSubscriberClient conductSubscriberClient;
         private readonly IDevicesDao devicesDao;
         private readonly ILogger<PhilipsHueWorkerService> logger;
         private readonly IConfigurationService configurationService;
@@ -32,12 +34,14 @@ namespace Signal.Beacon.PhilipsHue
         public PhilipsHueWorkerService(
             ICommandHandler<DeviceStateSetCommand> deviceStateSerHandler,
             ICommandHandler<DeviceDiscoveredCommand> deviceDiscoveryHandler,
+            IConductSubscriberClient conductSubscriberClient,
             IDevicesDao devicesDao,
             ILogger<PhilipsHueWorkerService> logger,
             IConfigurationService configurationService)
         {
             this.deviceStateSerHandler = deviceStateSerHandler ?? throw new ArgumentNullException(nameof(deviceStateSerHandler));
             this.deviceDiscoveryHandler = deviceDiscoveryHandler ?? throw new ArgumentNullException(nameof(deviceDiscoveryHandler));
+            this.conductSubscriberClient = conductSubscriberClient ?? throw new ArgumentNullException(nameof(conductSubscriberClient));
             this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
@@ -56,6 +60,21 @@ namespace Signal.Beacon.PhilipsHue
             }
 
             _ = Task.Run(() => this.PeriodicalLightStateRefreshAsync(cancellationToken), cancellationToken);
+
+            this.conductSubscriberClient.Subscribe(PhilipsHueChannels.DeviceChannel, this.ConductHandlerAsync);
+        }
+
+        private async Task ConductHandlerAsync(Conduct conduct, CancellationToken cancellationToken)
+        {
+            var light = this.lights.FirstOrDefault(l => l.Key == ToPhilipsHueDeviceId(conduct.Target.Identifier));
+            foreach (var bridgeConnection in this.bridges.ToList())
+            {
+                var connection = await this.GetBridgeConnectionAsync(bridgeConnection.Config.Id);
+                if (connection.LocalClient != null)
+                    await connection.LocalClient.SendCommandAsync(
+                        new LightCommand {On = conduct.Value.ToString()?.ToLowerInvariant() == "true"},
+                        new[] {light.Value.Id});
+            }
         }
 
         private async Task PeriodicalLightStateRefreshAsync(CancellationToken cancellationToken)

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Signal.Beacon.Application.Processing;
 using Signal.Beacon.Core.Configuration;
 using Signal.Beacon.Core.Signal;
 using Signal.Beacon.Core.Workers;
@@ -17,18 +18,21 @@ namespace Signal.Beacon.WorkerService
         private readonly ISignalClient signalClient;
         private readonly Lazy<IEnumerable<IWorkerService>> workerServices;
         private readonly IConfigurationService configurationService;
+        private readonly IProcessor processor;
         private readonly ILogger<Worker> logger;
 
         public Worker(
             ISignalClient signalClient,
             Lazy<IEnumerable<IWorkerService>> workerServices, 
             IConfigurationService configurationService,
+            IProcessor processor,
             ILogger<Worker> logger)
         {
             this.signalClient = signalClient ?? throw new ArgumentNullException(nameof(signalClient));
             this.workerServices = workerServices ?? throw new ArgumentNullException(nameof(workerServices));
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
-            this.logger = logger;
+            this.processor = processor ?? throw new ArgumentNullException(nameof(processor));
+            this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public class BeaconConfiguration
@@ -81,9 +85,12 @@ namespace Signal.Beacon.WorkerService
                 this.signalClient.AssignToken(config.Token);
             }
 
+            // Start processor
+            await this.processor.StartAsync(stoppingToken);
+            this.logger.LogInformation("Processor started.");
+
             // Start worker services
             await Task.WhenAll(this.workerServices.Value.Select(ws => this.StartWorkerService(ws, stoppingToken)));
-            
             this.logger.LogInformation("All worker services started.");
 
             // Wait for cancellation token
