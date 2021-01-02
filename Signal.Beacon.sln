@@ -25,8 +25,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Api", "Signal
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Voice", "Signal.Beacon.Voice\Signal.Beacon.Voice.csproj", "{EE74B50A-41F7-4613-85F9-BBCD691482C9}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Channel.Signal", "Signal.Beacon.Channel.Signal\Signal.Beacon.Channel.Signal.csproj", "{90595897-1E5C-4CE5-9257-9B5E48B51020}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Channel.BroadLink", "Signal.Beacon.Channel.BroadLink\Signal.Beacon.Channel.BroadLink.csproj", "{152E7409-3F61-472C-B18C-3A72C7268601}"
 EndProject
 Global
@@ -67,10 +65,6 @@ Global
 		{EE74B50A-41F7-4613-85F9-BBCD691482C9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EE74B50A-41F7-4613-85F9-BBCD691482C9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EE74B50A-41F7-4613-85F9-BBCD691482C9}.Release|Any CPU.Build.0 = Release|Any CPU
-		{90595897-1E5C-4CE5-9257-9B5E48B51020}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{90595897-1E5C-4CE5-9257-9B5E48B51020}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{90595897-1E5C-4CE5-9257-9B5E48B51020}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{90595897-1E5C-4CE5-9257-9B5E48B51020}.Release|Any CPU.Build.0 = Release|Any CPU
 		{152E7409-3F61-472C-B18C-3A72C7268601}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{152E7409-3F61-472C-B18C-3A72C7268601}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{152E7409-3F61-472C-B18C-3A72C7268601}.Release|Any CPU.ActiveCfg = Release|Any CPU

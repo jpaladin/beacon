@@ -1,45 +1,17 @@
 ﻿using System;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
+using Signal.Beacon.Application.Auth;
 using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.Signal;
 
-namespace Signal.Beacon.Channel.Signal
+namespace Signal.Beacon.Application.Signal
 {
-
-    public static class SignalExtensions
-    {
-        public static IServiceCollection AddSignalApi(this IServiceCollection services)
-        {
-            return services.AddSingleton<ISignalClient, SignalClient>();
-        }
-    }
-    
-    public class SignalBeaconRegisterDto
-    {
-        public string BeaconId { get; set; }
-    }
-    
-    public class SignalDeviceStatePublishDto
-    {
-        public string DeviceIdentifier { get; set; }
-        
-        public string ChannelName { get; set; }
-        
-        public string ContactName { get; set; }
-        
-        public string? ValueSerialized { get; set; }
-        
-        public DateTime TimeStamp { get; set; }
-    }
-    
-    public class SignalClient : ISignalClient
+    public class SignalClient : ISignalClient, ISignalClientAuthFlow
     {
         private const string SignalApiUrl = "https://signal-api.azurewebsites.net";
         //private const string SignalApiUrl = "http://localhost:7071";
@@ -56,7 +28,12 @@ namespace Signal.Beacon.Channel.Signal
             this.client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", this.token.AccessToken);
         }
-        
+
+        public Task RenewTokenAsync()
+        {
+            throw new NotImplementedException();
+        }
+
         public async Task DevicesPublishStateAsync(DeviceTarget target, object? value, DateTime timeStamp, CancellationToken cancellationToken)
         {
             var (channel, identifier, contact) = target;
@@ -82,13 +59,12 @@ namespace Signal.Beacon.Channel.Signal
 
         public async Task RegisterBeaconAsync(string beaconId, CancellationToken cancellationToken)
         {
-            var data = new SignalBeaconRegisterDto
-            {
-                BeaconId = beaconId
-            };
-            await this.PostAsJsonAsync(SignalApiBeaconRegisterUrl, data, cancellationToken);
+            await this.PostAsJsonAsync(
+                SignalApiBeaconRegisterUrl, 
+                new SignalBeaconRegisterDto(beaconId),
+                cancellationToken);
         }
-        
+
         private async Task PostAsJsonAsync<T>(string url, T data, CancellationToken cancellationToken)
         {
             using var response = await this.client.PostAsJsonAsync(url, data, cancellationToken);

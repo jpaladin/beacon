@@ -6,7 +6,10 @@ using Microsoft.Extensions.Logging;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Signal.Beacon.Application.Auth;
+using Signal.Beacon.Application.Auth0;
 using Signal.Beacon.Application.Processing;
+using Signal.Beacon.Application.Signal;
 using Signal.Beacon.Core.Configuration;
 using Signal.Beacon.Core.Signal;
 using Signal.Beacon.Core.Workers;
@@ -16,6 +19,7 @@ namespace Signal.Beacon.WorkerService
     public class Worker : BackgroundService
     {
         private readonly ISignalClient signalClient;
+        private readonly ISignalClientAuthFlow signalClientAuthFlow;
         private readonly Lazy<IEnumerable<IWorkerService>> workerServices;
         private readonly IConfigurationService configurationService;
         private readonly IProcessor processor;
@@ -23,12 +27,14 @@ namespace Signal.Beacon.WorkerService
 
         public Worker(
             ISignalClient signalClient,
+            ISignalClientAuthFlow signalClientAuthFlow,
             Lazy<IEnumerable<IWorkerService>> workerServices, 
             IConfigurationService configurationService,
             IProcessor processor,
             ILogger<Worker> logger)
         {
             this.signalClient = signalClient ?? throw new ArgumentNullException(nameof(signalClient));
+            this.signalClientAuthFlow = signalClientAuthFlow ?? throw new ArgumentNullException(nameof(signalClientAuthFlow));
             this.workerServices = workerServices ?? throw new ArgumentNullException(nameof(workerServices));
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
             this.processor = processor ?? throw new ArgumentNullException(nameof(processor));
@@ -38,6 +44,7 @@ namespace Signal.Beacon.WorkerService
         public class BeaconConfiguration
         {
             public string? Identifier { get; set; }
+
             public AuthToken? Token {get;set;}
         }
 
@@ -69,7 +76,7 @@ namespace Signal.Beacon.WorkerService
                     this.logger.LogInformation("Authorized successfully.");
 
                     // Register Beacon
-                    this.signalClient.AssignToken(token);
+                    this.signalClientAuthFlow.AssignToken(token);
                     await this.signalClient.RegisterBeaconAsync(config.Identifier, stoppingToken);
 
                     config.Token = token;
@@ -82,7 +89,7 @@ namespace Signal.Beacon.WorkerService
             }
             else
             {
-                this.signalClient.AssignToken(config.Token);
+                this.signalClientAuthFlow.AssignToken(config.Token);
             }
 
             // Start processor

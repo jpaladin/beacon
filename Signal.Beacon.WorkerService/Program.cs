@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Signal.Beacon.Api;
 using Signal.Beacon.Application;
-using Signal.Beacon.Channel.Signal;
+using Signal.Beacon.Application.Signal;
 using Signal.Beacon.Configuration;
 using Signal.Beacon.PhilipsHue;
 using Signal.Beacon.Zigbee2Mqtt;
