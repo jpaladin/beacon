@@ -17,6 +17,9 @@ namespace Signal.Beacon.PhilipsHue
 {
     internal class PhilipsHueWorkerService : IWorkerService
     {
+        private const int RegisterBridgeRetryTimes = 12;
+        private const string PhilipsHueConfigurationFileName = "PhilipsHue.json";
+
         private readonly ICommandHandler<DeviceStateSetCommand> deviceStateSerHandler;
         private readonly ICommandHandler<DeviceDiscoveredCommand> deviceDiscoveryHandler;
         private readonly IConductSubscriberClient conductSubscriberClient;
@@ -24,12 +27,9 @@ namespace Signal.Beacon.PhilipsHue
         private readonly ILogger<PhilipsHueWorkerService> logger;
         private readonly IConfigurationService configurationService;
 
-        private const int RegisterBridgeRetryTimes = 12;
-        private const string PhilipsHueConfigurationFileName = "PhilipsHue.json";
-
-        private PhilipsHueWorkerServiceConfiguration config = new();
+        private PhilipsHueWorkerServiceConfiguration configuration = new();
         private readonly List<BridgeConnection> bridges = new();
-        private readonly Dictionary<string, Light> lights = new();
+        private readonly Dictionary<string, PhilipsHueLight> lights = new();
 
         public PhilipsHueWorkerService(
             ICommandHandler<DeviceStateSetCommand> deviceStateSerHandler,
@@ -49,13 +49,13 @@ namespace Signal.Beacon.PhilipsHue
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            this.config = await this.LoadBridgeConfigsAsync(cancellationToken);
-            if (!this.config.Bridges.Any())
+            this.configuration = await this.LoadBridgeConfigsAsync(cancellationToken);
+            if (!this.configuration.Bridges.Any())
                 _ = this.DiscoverBridgesAsync(true, cancellationToken);
             else
             {
                 // Connect to already configured bridges
-                foreach (var bridgeConfig in this.config.Bridges.ToList())
+                foreach (var bridgeConfig in this.configuration.Bridges.ToList())
                     _ = this.ConnectBridgeAsync(bridgeConfig, cancellationToken);
             }
 
@@ -66,15 +66,21 @@ namespace Signal.Beacon.PhilipsHue
 
         private async Task ConductHandlerAsync(Conduct conduct, CancellationToken cancellationToken)
         {
-            var light = this.lights.FirstOrDefault(l => l.Key == ToPhilipsHueDeviceId(conduct.Target.Identifier));
-            foreach (var bridgeConnection in this.bridges.ToList())
+            // Try to find device in local lights list
+            var lightIdentifier = conduct.Target.Identifier;
+            if (!this.lights.TryGetValue(ToPhilipsHueDeviceId(lightIdentifier), out var light))
             {
-                var connection = await this.GetBridgeConnectionAsync(bridgeConnection.Config.Id);
-                if (connection.LocalClient != null)
-                    await connection.LocalClient.SendCommandAsync(
-                        new LightCommand {On = conduct.Value.ToString()?.ToLowerInvariant() == "true"},
-                        new[] {light.Value.Id});
+                this.logger.LogWarning(
+                    "No light with specified identifier registered. Target identifier: {TargetIdentifier}",
+                    lightIdentifier);
+                return;
             }
+
+            // Retrieve bridge connection and send command
+            var bridgeConnection = await this.GetBridgeConnectionAsync(light.BridgeId);
+            await bridgeConnection.LocalClient.SendCommandAsync(
+                new LightCommand {On = conduct.Value.ToString()?.ToLowerInvariant() == "true"},
+                new[] {light.OnBridgeId});
         }
 
         private async Task PeriodicalLightStateRefreshAsync(CancellationToken cancellationToken)
@@ -115,12 +121,12 @@ namespace Signal.Beacon.PhilipsHue
             return bridge;
         }
 
-        private async Task RefreshLightStateAsync(BridgeConnection bridge, Light light, CancellationToken cancellationToken)
+        private async Task RefreshLightStateAsync(BridgeConnection bridge, PhilipsHueLight light, CancellationToken cancellationToken)
         {
-            var updatedLight = await bridge.LocalClient.GetLightAsync(light.Id);
+            var updatedLight = await bridge.LocalClient.GetLightAsync(light.OnBridgeId);
             if (updatedLight != null)
             {
-                this.lights[light.UniqueId] = updatedLight;
+                this.lights[light.UniqueId] = updatedLight.AsPhilipsHueLight(bridge.Config.Id);
                 await this.deviceStateSerHandler.HandleAsync(
                     new DeviceStateSetCommand(new DeviceTarget(PhilipsHueChannels.DeviceChannel, ToSignalDeviceId(light.UniqueId), "state"), updatedLight.State.On), 
                     cancellationToken);
@@ -129,7 +135,7 @@ namespace Signal.Beacon.PhilipsHue
             {
                 this.logger.LogWarning(
                     "Light with ID {LightId} not found on bridge {BridgeName}.",
-                    light.Id,
+                    light.UniqueId,
                     bridge.Config.Id);
             }
         }
@@ -138,7 +144,7 @@ namespace Signal.Beacon.PhilipsHue
             await this.configurationService.LoadAsync<PhilipsHueWorkerServiceConfiguration>(PhilipsHueConfigurationFileName, cancellationToken);
 
         private async Task SaveBridgeConfigsAsync(CancellationToken cancellationToken) => 
-            await this.configurationService.SaveAsync(PhilipsHueConfigurationFileName, this.config, cancellationToken);
+            await this.configurationService.SaveAsync(PhilipsHueConfigurationFileName, this.configuration, cancellationToken);
 
         private async Task ConnectBridgeAsync(BridgeConfig config, CancellationToken cancellationToken)
         {
@@ -152,15 +158,8 @@ namespace Signal.Beacon.PhilipsHue
 
                 var existingBridge = this.bridges.FirstOrDefault(b => b.Config.Id == config.Id);
                 if (existingBridge != null)
-                    existingBridge.LocalClient = client;
-                else
-                {
-                    this.bridges.Add(new BridgeConnection
-                    {
-                        Config = config,
-                        LocalClient = client
-                    });
-                }
+                    existingBridge.AssignNewClient(client);
+                else this.bridges.Add(new BridgeConnection(config, client));
 
                 client.Initialize(config.LocalAppKey);
                 if (!await client.CheckConnection())
@@ -191,9 +190,8 @@ namespace Signal.Beacon.PhilipsHue
             try
             {
                 var bridge = await this.GetBridgeConnectionAsync(bridgeId);
-                var client = bridge.LocalClient;
-                var lights = await client.GetLightsAsync();
-                foreach (var light in lights)
+                var remoteLights = await bridge.LocalClient.GetLightsAsync();
+                foreach (var light in remoteLights)
                 {
                     if (string.IsNullOrWhiteSpace(light.UniqueId))
                     {
@@ -203,10 +201,8 @@ namespace Signal.Beacon.PhilipsHue
 
                     var existingDevice = await this.devicesDao.GetAsync(light.UniqueId, cancellationToken);
                     if (existingDevice == null)
-                        this.NewLight(light, cancellationToken);
+                        this.NewLight(bridgeId, light, cancellationToken);
                     else throw new NotImplementedException("Updating existing device not supported yet.");
-
-                    this.lights.Add(light.UniqueId, light);
                 }
             }
             catch (Exception ex)
@@ -215,8 +211,11 @@ namespace Signal.Beacon.PhilipsHue
             }
         }
 
-        private void NewLight(Light light, CancellationToken cancellationToken)
+        private void NewLight(string bridgeId, Light light, CancellationToken cancellationToken)
         {
+            this.lights.Add(light.UniqueId, light.AsPhilipsHueLight(bridgeId));
+
+            // Construct new device configuration
             var deviceConfig = new DeviceConfiguration(light.Name, ToSignalDeviceId(light.UniqueId))
             {
                 Manufacturer = light.ManufacturerName,
@@ -228,6 +227,7 @@ namespace Signal.Beacon.PhilipsHue
                         new[] {new DeviceContact("state", "bool")})
                 }
             };
+
             this.deviceDiscoveryHandler.HandleAsync(new DeviceDiscoveredCommand(deviceConfig), cancellationToken);
         }
 
@@ -264,7 +264,7 @@ namespace Signal.Beacon.PhilipsHue
                             existingConnection.Config.IpAddress, existingConnection.Config.Id);
 
                         // Persist updated configuration
-                        this.config.Bridges.First(b => b.Id == existingConnection.Config.Id).IpAddress = bridge.IpAddress;
+                        this.configuration.Bridges.First(b => b.Id == existingConnection.Config.Id).IpAddress = bridge.IpAddress;
                         await this.SaveBridgeConfigsAsync(cancellationToken);
 
                         _ = this.ConnectBridgeAsync(existingConnection.Config, cancellationToken);
@@ -275,15 +275,10 @@ namespace Signal.Beacon.PhilipsHue
                         if (appKey == null)
                             throw new Exception("Hub responded with null key.");
 
-                        var bridgeConfig = new BridgeConfig
-                        {
-                            Id = bridge.BridgeId,
-                            IpAddress = bridge.IpAddress,
-                            LocalAppKey = appKey
-                        };
+                        var bridgeConfig = new BridgeConfig(bridge.BridgeId, bridge.IpAddress, appKey);
 
                         // Persist bridge configuration
-                        this.config.Bridges.Add(bridgeConfig);
+                        this.configuration.Bridges.Add(bridgeConfig);
                         await this.SaveBridgeConfigsAsync(cancellationToken);
 
                         _ = this.ConnectBridgeAsync(bridgeConfig, cancellationToken);
@@ -304,9 +299,9 @@ namespace Signal.Beacon.PhilipsHue
             }
         }
         
-        public async Task StopAsync(CancellationToken cancellationToken)
+        public Task StopAsync(CancellationToken cancellationToken)
         {
-            await Task.Delay(TimeSpan.FromSeconds(15), cancellationToken);
+            return Task.CompletedTask;
         }
     }
 }
