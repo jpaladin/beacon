@@ -2,11 +2,11 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Signal.Beacon.Zigbee2Mqtt.MessageQueue
+namespace Signal.Beacon.Core.Mqtt
 {
     public interface IMqttClient : IDisposable
     {
-        Task StartAsync(string hostAddress, CancellationToken cancellationToken);
+        Task StartAsync(string clientName, string hostAddress, CancellationToken cancellationToken);
         
         Task StopAsync(CancellationToken cancellationToken);
 

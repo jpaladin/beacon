@@ -1,13 +1,13 @@
-using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace Signal.Beacon.Zigbee2Mqtt
 {
     internal class BridgeDevice
     {
-        [JsonProperty("ieee_address", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonPropertyName("ieee_address")]
         public string? IeeeAddress { get; set; }
 
-        [JsonProperty("friendly_name", NullValueHandling = NullValueHandling.Ignore)]
+        [JsonPropertyName("friendly_name")]
         public string? FriendlyName { get; set;  }
 
         public BridgeDeviceDefinition? Definition { get; set; }

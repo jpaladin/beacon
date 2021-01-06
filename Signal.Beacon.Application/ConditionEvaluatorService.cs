@@ -34,6 +34,8 @@ namespace Signal.Beacon.Application
                     {
                         ConditionValueOperation.Equal => leftResult == rightResult || leftResult != null && leftResult.Equals(rightResult),
                         ConditionValueOperation.EqualOrNull => leftResult == rightResult || leftResult != null && leftResult.Equals(rightResult) || leftResult == null && rightResult != null || leftResult != null && rightResult == null,
+                        ConditionValueOperation.GreaterThan => OperationGreaterThan(leftResult, rightResult),
+                        ConditionValueOperation.LessThan => OperationLessThan(leftResult, rightResult),
                         _ => throw new NotSupportedException($"Not supported value provider: {conditionValueComparison.ValueOperation}")
                     };
                 }
@@ -85,6 +87,22 @@ namespace Signal.Beacon.Application
                 default:
                     throw new NotSupportedException($"Not supported condition comparison: {comparable?.GetType().FullName ?? "Comparable is null"}");
             }
+        }
+
+        private bool OperationLessThan(object? leftResult, object? rightResult)
+        {
+            if (double.TryParse(leftResult?.ToString(), out var leftNum) &&
+                double.TryParse(rightResult?.ToString(), out var rightNum))
+                return leftNum < rightNum;
+            return false;
+        }
+
+        private bool OperationGreaterThan(object? leftResult, object? rightResult)
+        {
+            if (double.TryParse(leftResult?.ToString(), out var leftNum) &&
+                double.TryParse(rightResult?.ToString(), out var rightNum))
+                return leftNum > rightNum;
+            return false;
         }
     }
 }

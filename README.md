@@ -2,6 +2,18 @@
 
 ![CodeQL](https://github.com/dfnoise/beacon/workflows/CodeQL/badge.svg)
 
+## Development
+
+### Publishing
+
+Example publish command for Windows x64 target:
+
+```
+dotnet publish -r win-x64 --self-contained true
+```
+
+_[.NET Core RID Catalog](https://docs.microsoft.com/en-us/dotnet/core/rid-catalog) for more options for `-r` flag._
+
 ## Services
 
 - API

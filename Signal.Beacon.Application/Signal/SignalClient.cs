@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -115,12 +114,29 @@ namespace Signal.Beacon.Application.Signal
             using var response = await this.client.PostAsJsonAsync(url, data, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                throw new Exception($"Signal API POST {url} failed. Reason: {await response.Content.ReadAsStringAsync(cancellationToken)} ({response.StatusCode})");
+                var responseContent = await GetResponseContentStringAsync(response, cancellationToken);
+                throw new Exception($"Signal API POST {url} failed. Reason: {responseContent} ({response.StatusCode})");
             }
 
             return await response.Content.ReadFromJsonAsync<TResponse>(
                 new JsonSerializerOptions {PropertyNameCaseInsensitive = true}, 
                 cancellationToken);
+        }
+
+        private async Task<string> GetResponseContentStringAsync(
+            HttpResponseMessage response,
+            CancellationToken cancellationToken)
+        {
+            try
+            {
+                var responseString = await response.Content.ReadAsStringAsync(cancellationToken);
+                return string.IsNullOrWhiteSpace(responseString) ? "No content." : responseString;
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogDebug(ex, "Failed to read API response content.");
+                return "Failed to read API response content.";
+            }
         }
     }
 }

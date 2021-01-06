@@ -67,7 +67,15 @@ namespace Signal.Beacon.Application
             }
             catch (Exception ex) when (ex.Message.Contains("IDX10223"))
             {
-                this.logger.LogWarning("Failed to push device state update to Signal - Token expired.");
+                this.logger.LogWarning("Failed to push device state update to Signal - Token expired. Device state {Target} to \"{Value}\"",
+                    target, value);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogWarning(
+                    ex,
+                    "Failed to push device state update to Signal - Unknown error. Device state {Target} to \"{Value}\"",
+                    target, value);
             }
 
             this.logger.LogDebug(

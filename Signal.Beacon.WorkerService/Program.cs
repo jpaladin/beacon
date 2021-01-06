@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Signal.Beacon.Api;
 using Signal.Beacon.Application;
 using Signal.Beacon.Application.Signal;
+using Signal.Beacon.Channel.Tasmota;
 using Signal.Beacon.Configuration;
 using Signal.Beacon.PhilipsHue;
 using Signal.Beacon.Zigbee2Mqtt;
@@ -37,6 +38,7 @@ namespace Signal.Beacon.WorkerService
                             .AddBeaconApplication()
                             .AddSignalApi()
                             .AddZigbee2Mqtt()
+                            .AddTasmota()
                             .AddPhilipsHue();
                             //.AddVoice();
 

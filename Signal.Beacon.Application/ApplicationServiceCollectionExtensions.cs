@@ -1,11 +1,13 @@
 using Microsoft.Extensions.DependencyInjection;
 using Signal.Beacon.Application.Conducts;
+using Signal.Beacon.Application.Mqtt;
 using Signal.Beacon.Application.Network;
 using Signal.Beacon.Application.Processing;
 using Signal.Beacon.Application.PubSub;
 using Signal.Beacon.Core.Conditions;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Devices;
+using Signal.Beacon.Core.Mqtt;
 using Signal.Beacon.Core.Network;
 using Signal.Beacon.Core.Processes;
 
@@ -24,6 +26,11 @@ namespace Signal.Beacon.Application
             services.AddSingleton<IProcessesDao, ProcessesDao>();
             services.AddSingleton<IProcessesRepository, ProcessesRepository>();
             services.AddSingleton<IDeviceStateManager, DeviceStateManager>();
+
+            // MQTT
+            services.AddTransient<IMqttClient, MqttClient>();
+            services.AddTransient<IMqttClientFactory, MqttClientFactory>();
+            services.AddTransient<IMqttDiscoveryService, MqttDiscoveryService>();
 
             // PubSub
             services.AddTransient<IPubSubHub<DeviceTarget>, PubSubHub<DeviceTarget>>();

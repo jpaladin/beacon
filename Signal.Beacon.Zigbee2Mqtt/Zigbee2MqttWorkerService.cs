@@ -1,17 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Signal.Beacon.Application.Mqtt;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Configuration;
 using Signal.Beacon.Core.Devices;
-using Signal.Beacon.Core.Network;
+using Signal.Beacon.Core.Mqtt;
 using Signal.Beacon.Core.Workers;
-using Signal.Beacon.Zigbee2Mqtt.MessageQueue;
 
 namespace Signal.Beacon.Zigbee2Mqtt
 {
@@ -25,9 +25,9 @@ namespace Signal.Beacon.Zigbee2Mqtt
         private readonly ICommandHandler<DeviceStateSetCommand> deviceSetStateHandler;
         private readonly ICommandHandler<DeviceDiscoveredCommand> deviceDiscoverHandler;
         private readonly IConductSubscriberClient conductSubscriberClient;
-        private readonly IZigbee2MqttClientFactory mqttClientFactory;
+        private readonly IMqttClientFactory mqttClientFactory;
+        private readonly IMqttDiscoveryService mqttDiscoveryService;
         private readonly IConfigurationService configurationService;
-        private readonly IHostInfoService hostInfoService;
         private readonly ILogger<Zigbee2MqttWorkerService> logger;
 
         private readonly CancellationTokenSource cts = new();
@@ -42,9 +42,9 @@ namespace Signal.Beacon.Zigbee2Mqtt
             ICommandHandler<DeviceStateSetCommand> devicesService,
             ICommandHandler<DeviceDiscoveredCommand> deviceDiscoverHandler,
             IConductSubscriberClient conductSubscriberClient,
-            IZigbee2MqttClientFactory mqttClientFactory,
+            IMqttClientFactory mqttClientFactory,
+            IMqttDiscoveryService mqttDiscoveryService,
             IConfigurationService configurationService,
-            IHostInfoService hostInfoService,
             ILogger<Zigbee2MqttWorkerService> logger)
         {
             this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
@@ -52,8 +52,8 @@ namespace Signal.Beacon.Zigbee2Mqtt
             this.deviceDiscoverHandler = deviceDiscoverHandler ?? throw new ArgumentNullException(nameof(deviceDiscoverHandler));
             this.conductSubscriberClient = conductSubscriberClient ?? throw new ArgumentNullException(nameof(conductSubscriberClient));
             this.mqttClientFactory = mqttClientFactory ?? throw new ArgumentNullException(nameof(mqttClientFactory));
+            this.mqttDiscoveryService = mqttDiscoveryService ?? throw new ArgumentNullException(nameof(mqttDiscoveryService));
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
-            this.hostInfoService = hostInfoService ?? throw new ArgumentNullException(nameof(hostInfoService));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -80,43 +80,30 @@ namespace Signal.Beacon.Zigbee2Mqtt
         {
             try
             {
-                var ipAddressesInRange = IPHelper.GetIPAddressesInRange(IPHelper.GetLocalIp());
-                var applicableHosts =
-                    await this.hostInfoService.HostsAsync(ipAddressesInRange, new[] {1883}, cancellationToken);
-                var brokerHost = applicableHosts.FirstOrDefault(h => h.OpenPorts.Any());
-                if (brokerHost == null)
+                var applicableHosts = await this.mqttDiscoveryService.DiscoverMqttBrokerHostsAsync("zigbee2mqtt/#", cancellationToken);
+                foreach (var applicableHost in applicableHosts)
                 {
-                    this.logger.LogWarning("MQTT broker not configured and couldn't discover any.");
-                    return;
-                }
-
-                try
-                {
-                    this.logger.LogInformation("Discovered possible MQTT broker on {IpAddress}. Connecting...",
-                        brokerHost.IpAddress);
-
-                    using var client = this.mqttClientFactory.Create();
-                    await client.StartAsync(brokerHost.IpAddress, cancellationToken);
-                    await client.StopAsync(cancellationToken);
-
-                    // Save configuration for discovered broker
-                    var config = new Zigbee2MqttWorkerServiceConfiguration.MqttServer
+                    try
                     {
-                        Url = brokerHost.IpAddress
-                    };
-                    this.configuration.Servers.Add(config);
-                    await this.configurationService.SaveAsync(ConfigurationFileName, this.configuration,
-                        cancellationToken);
+                        // Save configuration for discovered broker
+                        var config = new Zigbee2MqttWorkerServiceConfiguration.MqttServer
+                        {
+                            Url = applicableHost.IpAddress
+                        };
+                        this.configuration.Servers.Add(config);
+                        await this.configurationService.SaveAsync(ConfigurationFileName, this.configuration,
+                            cancellationToken);
 
-                    // Connect to it
-                    this.StartMqttClient(config);
-                }
-                catch (Exception ex)
-                {
-                    this.logger.LogWarning(
-                        ex,
-                        "Failed to connect to discovered MQTT broker on {IpAddress}",
-                        brokerHost.IpAddress);
+                        // Connect to it
+                        this.StartMqttClient(config);
+                    }
+                    catch (Exception ex)
+                    {
+                        this.logger.LogWarning(
+                            ex,
+                            "Failed to configure MQTT broker on {IpAddress}",
+                            applicableHost.IpAddress);
+                    }
                 }
             }
             catch (Exception ex)
@@ -137,7 +124,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
                     return;
                 }
 
-                await client.StartAsync(mqttServerConfig.Url, this.startCancellationToken);
+                await client.StartAsync("Signal.Beacon.Channel.Zigbee2Mqtt", mqttServerConfig.Url, this.startCancellationToken);
                 await client.SubscribeAsync(
                     MqttTopicSubscription,
                     m => this.MessageHandler(m, this.cts.Token));
@@ -180,7 +167,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
         {
             try
             {
-                var (topic, payload, _) = message;
+                var (_, topic, payload, _) = message;
 
                 // Ignore logging
                 if (topic.StartsWith("zigbee2mqtt/bridge/logging"))
@@ -198,7 +185,14 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
         private async Task HandleDeviceTopicAsync(string topic, string payload, CancellationToken cancellationToken)
         {
-            var device = await this.devicesDao.GetByAliasAsync(topic.Replace("zigbee2mqtt/", ""), cancellationToken);
+            var deviceIdentifier = topic.Split("/", StringSplitOptions.RemoveEmptyEntries)
+                .Skip(1).Take(1)
+                .FirstOrDefault();
+            if (deviceIdentifier == null ||
+                deviceIdentifier == "bridge")
+                return;
+
+            var device = await this.devicesDao.GetByAliasAsync(deviceIdentifier, cancellationToken);
             if (device == null)
             {
                 this.logger.LogDebug("Device {DeviceIdentifier} not found", topic);
@@ -238,7 +232,8 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
         private async Task HandleDevicesConfigChangeAsync(string messagePayload, CancellationToken cancellationToken)
         {
-            var config = JsonConvert.DeserializeObject<List<BridgeDevice>>(messagePayload);
+            var config = JsonSerializer.Deserialize<List<BridgeDevice>>(messagePayload,
+                new JsonSerializerOptions {PropertyNameCaseInsensitive = true});
             foreach (var bridgeDevice in config)
             {
                 if (string.IsNullOrWhiteSpace(bridgeDevice.IeeeAddress))

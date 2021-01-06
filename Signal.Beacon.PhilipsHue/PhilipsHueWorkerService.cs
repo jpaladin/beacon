@@ -20,7 +20,7 @@ namespace Signal.Beacon.PhilipsHue
         private const int RegisterBridgeRetryTimes = 12;
         private const string PhilipsHueConfigurationFileName = "PhilipsHue.json";
 
-        private readonly ICommandHandler<DeviceStateSetCommand> deviceStateSerHandler;
+        private readonly ICommandHandler<DeviceStateSetCommand> deviceStateSetHandler;
         private readonly ICommandHandler<DeviceDiscoveredCommand> deviceDiscoveryHandler;
         private readonly IConductSubscriberClient conductSubscriberClient;
         private readonly IDevicesDao devicesDao;
@@ -39,7 +39,7 @@ namespace Signal.Beacon.PhilipsHue
             ILogger<PhilipsHueWorkerService> logger,
             IConfigurationService configurationService)
         {
-            this.deviceStateSerHandler = deviceStateSerHandler ?? throw new ArgumentNullException(nameof(deviceStateSerHandler));
+            this.deviceStateSetHandler = deviceStateSerHandler ?? throw new ArgumentNullException(nameof(deviceStateSerHandler));
             this.deviceDiscoveryHandler = deviceDiscoveryHandler ?? throw new ArgumentNullException(nameof(deviceDiscoveryHandler));
             this.conductSubscriberClient = conductSubscriberClient ?? throw new ArgumentNullException(nameof(conductSubscriberClient));
             this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
@@ -126,10 +126,18 @@ namespace Signal.Beacon.PhilipsHue
             var updatedLight = await bridge.LocalClient.GetLightAsync(light.OnBridgeId);
             if (updatedLight != null)
             {
-                this.lights[light.UniqueId] = updatedLight.AsPhilipsHueLight(bridge.Config.Id);
-                await this.deviceStateSerHandler.HandleAsync(
-                    new DeviceStateSetCommand(new DeviceTarget(PhilipsHueChannels.DeviceChannel, ToSignalDeviceId(light.UniqueId), "state"), updatedLight.State.On), 
-                    cancellationToken);
+                var oldLight = this.lights[light.UniqueId];
+                var newLight = updatedLight.AsPhilipsHueLight(bridge.Config.Id);
+                this.lights[light.UniqueId] = newLight;
+
+                if (oldLight == null || !newLight.State.Equals(oldLight.State))
+                {
+                    await this.deviceStateSetHandler.HandleAsync(
+                        new DeviceStateSetCommand(
+                            new DeviceTarget(PhilipsHueChannels.DeviceChannel, ToSignalDeviceId(light.UniqueId), "on"),
+                            updatedLight.State.On),
+                        cancellationToken);
+                }
             }
             else
             {
@@ -223,8 +231,8 @@ namespace Signal.Beacon.PhilipsHue
                 Endpoints = new[]
                 {
                     new DeviceEndpoint("main",
-                        new[] {new DeviceContact("state", "bool")},
-                        new[] {new DeviceContact("state", "bool")})
+                        new[] {new DeviceContact("on", "bool")},
+                        new[] {new DeviceContact("on", "bool")})
                 }
             };
 

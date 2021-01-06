@@ -1,14 +1,14 @@
 using System;
 using Microsoft.Extensions.DependencyInjection;
-using Signal.Beacon.Zigbee2Mqtt.MessageQueue;
+using Signal.Beacon.Core.Mqtt;
 
-namespace Signal.Beacon.Zigbee2Mqtt
+namespace Signal.Beacon.Application.Mqtt
 {
-    internal class Zigbee2MqttClientFactory : IZigbee2MqttClientFactory
+    internal class MqttClientFactory : IMqttClientFactory
     {
         private readonly IServiceProvider serviceProvider;
 
-        public Zigbee2MqttClientFactory(
+        public MqttClientFactory(
             IServiceProvider serviceProvider)
         {
             this.serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));

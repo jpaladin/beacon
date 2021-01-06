@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -13,9 +14,10 @@ using MQTTnet.Client.Disconnecting;
 using MQTTnet.Client.Options;
 using MQTTnet.Extensions.ManagedClient;
 using MQTTnet.Server;
-using Newtonsoft.Json;
+using Signal.Beacon.Core.Mqtt;
+using IMqttClient = Signal.Beacon.Core.Mqtt.IMqttClient;
 
-namespace Signal.Beacon.Zigbee2Mqtt.MessageQueue
+namespace Signal.Beacon.Application.Mqtt
 {
     public class MqttClient : IMqttClient
     {
@@ -31,7 +33,7 @@ namespace Signal.Beacon.Zigbee2Mqtt.MessageQueue
         }
 
 
-        public async Task StartAsync(string hostAddress, CancellationToken cancellationToken)
+        public async Task StartAsync(string clientName, string hostAddress, CancellationToken cancellationToken)
         {
             if (this.mqttClient != null)
                 throw new Exception("Can't start client twice.");
@@ -46,7 +48,7 @@ namespace Signal.Beacon.Zigbee2Mqtt.MessageQueue
                 var options = new ManagedMqttClientOptionsBuilder()
                     .WithAutoReconnectDelay(TimeSpan.FromSeconds(5))
                     .WithClientOptions(new MqttClientOptionsBuilder()
-                        .WithClientId("Signal.Beacon")
+                        .WithClientId(clientName)
                         .WithTcpServer(selectedAddress.ToString())
                         .Build())
                     .Build();
@@ -81,23 +83,33 @@ namespace Signal.Beacon.Zigbee2Mqtt.MessageQueue
                 new MqttTopicFilterBuilder().WithTopic(topic).Build());
 
             if (!this.subscriptions.ContainsKey(topic))
+            {
                 this.subscriptions.Add(topic, new List<Func<MqttMessage, Task>>());
+                this.logger.LogDebug("Subscribed to topic: {Topic}", topic);
+            }
+
             this.subscriptions[topic].Add(handler);
         }
 
         public async Task PublishAsync(string topic, object? payload, bool retain = false)
         {
+            var withPayload = payload == null
+                ? null
+                : payload is string payloadString
+                    ? payloadString
+                    : JsonSerializer.Serialize(payload, payload.GetType());
+
             await this.mqttClient.PublishAsync(
                 new MqttApplicationMessageBuilder()
                     .WithTopic(topic)
-                    .WithPayload(payload is string ? payload.ToString() : JsonConvert.SerializeObject(payload))
+                    .WithPayload(withPayload)
                     .WithRetainFlag(retain)
                     .Build());
         }
 
         private async Task MessageHandler(MqttApplicationMessageReceivedEventArgs arg)
         {
-            var message = new MqttMessage(arg.ApplicationMessage.Topic, Encoding.ASCII.GetString(arg.ApplicationMessage.Payload), arg.ApplicationMessage.Payload);
+            var message = new MqttMessage(this, arg.ApplicationMessage.Topic, Encoding.ASCII.GetString(arg.ApplicationMessage.Payload), arg.ApplicationMessage.Payload);
             this.logger.LogTrace("Topic {Topic}, Payload: {Payload}", message.Topic, message.Payload);
 
             foreach (var subscription in this.subscriptions
