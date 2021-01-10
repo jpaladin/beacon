@@ -12,11 +12,11 @@ using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.Mqtt;
 using Signal.Beacon.Core.Workers;
 
-namespace Signal.Beacon.Channel.Tasmota
+namespace Signal.Beacon.Channel.Signal
 {
-    public class TasmotaWorkerService : IWorkerService
+    public class SignalWorkerService : IWorkerService
     {
-        private const string ConfigurationFileName = "Tasmota.json";
+        private const string ConfigurationFileName = "Signal.json";
 
         private readonly IMqttClientFactory mqttClientFactory;
         private readonly IMqttDiscoveryService mqttDiscoveryService;
@@ -24,20 +24,20 @@ namespace Signal.Beacon.Channel.Tasmota
         private readonly IConductSubscriberClient conductSubscriberClient;
         private readonly ICommandHandler<DeviceDiscoveredCommand> deviceDiscoveryHandler;
         private readonly ICommandHandler<DeviceStateSetCommand> deviceStateHandler;
-        private readonly ILogger<TasmotaWorkerService> logger;
+        private readonly ILogger<SignalWorkerService> logger;
         private readonly List<IMqttClient> clients = new();
 
-        private TasmotaWorkerServiceConfiguration configuration = new();
+        private SignalWorkerServiceConfiguration configuration = new();
         private CancellationToken startCancellationToken;
 
-        public TasmotaWorkerService(
+        public SignalWorkerService(
             IMqttClientFactory mqttClientFactory,
             IMqttDiscoveryService mqttDiscoveryService,
             IConfigurationService configurationService,
             IConductSubscriberClient conductSubscriberClient,
             ICommandHandler<DeviceDiscoveredCommand> deviceDiscoveryHandler,
             ICommandHandler<DeviceStateSetCommand> deviceStateHandler,
-            ILogger<TasmotaWorkerService> logger)
+            ILogger<SignalWorkerService> logger)
         {
             this.mqttClientFactory = mqttClientFactory ?? throw new ArgumentNullException(nameof(mqttClientFactory));
             this.mqttDiscoveryService = mqttDiscoveryService ?? throw new ArgumentNullException(nameof(mqttDiscoveryService));
@@ -53,7 +53,7 @@ namespace Signal.Beacon.Channel.Tasmota
         {
             this.startCancellationToken = cancellationToken;
             this.configuration =
-                await this.configurationService.LoadAsync<TasmotaWorkerServiceConfiguration>(
+                await this.configurationService.LoadAsync<SignalWorkerServiceConfiguration>(
                     ConfigurationFileName,
                     cancellationToken);
 
@@ -65,27 +65,28 @@ namespace Signal.Beacon.Channel.Tasmota
                 this.DiscoverMqttBrokersAsync(cancellationToken);
             }
 
-            this.conductSubscriberClient.Subscribe(TasmotaChannels.DeviceChannel, this.ConductHandler);
+            this.conductSubscriberClient.Subscribe(SignalChannels.DeviceChannel, this.ConductHandler);
         }
 
         private async Task ConductHandler(Conduct conduct, CancellationToken cancellationToken)
         {
+            var localIdentifier = conduct.Target.Identifier[6..];
             var client = this.clients.FirstOrDefault();
             if (client != null)
-                await client.PublishAsync($"signal/{conduct.Target.Identifier}/{conduct.Target.Contact}/set", conduct.Value);
+                await client.PublishAsync($"{conduct.Target.Channel}/{localIdentifier}/{conduct.Target.Contact}/set", conduct.Value);
         }
 
-        private async void StartMqttClientAsync(TasmotaWorkerServiceConfiguration.MqttServer mqttServerConfig)
+        private async void StartMqttClientAsync(SignalWorkerServiceConfiguration.MqttServer mqttServerConfig)
         {
             var client = this.mqttClientFactory.Create();
-            await client.StartAsync("Signal.Beacon.Channel.Tasmota", mqttServerConfig.Url, this.startCancellationToken);
-            await client.SubscribeAsync("tasmota/discovery/#", this.DiscoverDevicesAsync);
+            await client.StartAsync("Signal.Beacon.Channel.Signal", mqttServerConfig.Url, this.startCancellationToken);
+            await client.SubscribeAsync("signal/discovery/#", this.DiscoverDevicesAsync);
             this.clients.Add(client);
         }
 
         private async Task DiscoverDevicesAsync(MqttMessage message)
         {
-            var config = JsonSerializer.Deserialize<TasmotaConfig>(message.Payload);
+            var config = JsonSerializer.Deserialize<SignalDeviceConfig>(message.Payload);
 
             var discoveryType = message.Topic.Split("/", StringSplitOptions.RemoveEmptyEntries).Last();
             if (discoveryType == "config")
@@ -94,59 +95,51 @@ namespace Signal.Beacon.Channel.Tasmota
                 await this.deviceDiscoveryHandler.HandleAsync(
                     new DeviceDiscoveredCommand(
                         new DeviceConfiguration(
-                            config.DeviceName,
-                            $"{TasmotaChannels.DeviceChannel}/{config.Topic}",
+                            config.Hostname,
+                            $"{SignalChannels.DeviceChannel}/{config.MqttTopic}",
                             new DeviceEndpoint[]
                             {
-                                new(TasmotaChannels.DeviceChannel, new []{new DeviceContact("A0", "double"){NoiseReductionDelta = 5}})
+                                // TODO: Parse endpoint configuration
+                                new(SignalChannels.DeviceChannel, new []{new DeviceContact("locked", "bool")})
                             })),
                     this.startCancellationToken);
 
                 // Subscribe for device telemetry
-                var telemetrySubscribeTopic = config.FullTopic
-                    .Replace("%topic%", config.Topic)
-                    .Replace("%prefix%", config.TopicPrefixes[2]);
-                await message.Client.SubscribeAsync($"{telemetrySubscribeTopic}#",
-                    msg => this.TelemetryHandlerAsync($"{TasmotaChannels.DeviceChannel}/{config.Topic}", msg));
-            }
-            else if (discoveryType == "sensors")
-            {
-                // TODO: Assign endpoints
-            }
+                var telemetrySubscribeTopic = $"signal/{config.MqttTopic}/#";
+                await message.Client.SubscribeAsync(telemetrySubscribeTopic,
+                    msg => this.TelemetryHandlerAsync($"{SignalChannels.DeviceChannel}/{config.MqttTopic}", msg));
+
+                // Publish telemetry refresh request
+                await message.Client.PublishAsync($"signal/{config.MqttTopic}/get", "get");
+            } 
         }
 
         private async Task TelemetryHandlerAsync(string deviceIdentifier, MqttMessage message)
         {
-            var type = message.Topic.Split("/", StringSplitOptions.RemoveEmptyEntries).Last();
-            if (type == "SENSOR")
+            var isTelemetry = deviceIdentifier == message.Topic;
+            if (isTelemetry)
             {
-                var telemetry = JsonSerializer.Deserialize<TasmotaSensorTelemetry>(message.Payload);
-                if (telemetry?.Analog?.A0 != null)
-                {
-                    var target = new DeviceTarget(TasmotaChannels.DeviceChannel, deviceIdentifier, "A0");
-                    var newValue = telemetry.Analog.A0;
-                    await this.deviceStateHandler.HandleAsync(
-                        new DeviceStateSetCommand(target, newValue),
+                var telemetry = JsonSerializer.Deserialize<SignalSensorTelemetry>(message.Payload);
+                if (telemetry?.Locked != null)
+                    await this.deviceStateHandler.HandleAsync(new DeviceStateSetCommand(
+                            new DeviceTarget(SignalChannels.DeviceChannel, deviceIdentifier, "locked"),
+                            telemetry.Locked),
                         this.startCancellationToken);
-                }
-            }
-            else if (type == "LWT")
-            {
-                // TODO: Handle Online/Offline
             }
         }
 
         private async void DiscoverMqttBrokersAsync(CancellationToken cancellationToken)
         {
             var availableBrokers =
-                await this.mqttDiscoveryService.DiscoverMqttBrokerHostsAsync("tasmota/#", cancellationToken);
+                await this.mqttDiscoveryService.DiscoverMqttBrokerHostsAsync("signal/#", cancellationToken);
             foreach (var availableBroker in availableBrokers)
             {
-                // TODO: Check for duplicates
-                var config = new TasmotaWorkerServiceConfiguration.MqttServer(availableBroker.IpAddress);
-                this.configuration.Servers.Add(config);
+                this.configuration.Servers.Add(new SignalWorkerServiceConfiguration.MqttServer
+                    { Url = availableBroker.IpAddress });
                 await this.configurationService.SaveAsync(ConfigurationFileName, this.configuration, cancellationToken);
-                this.StartMqttClientAsync(config);
+                this.StartMqttClientAsync(
+                    new SignalWorkerServiceConfiguration.MqttServer
+                        {Url = availableBroker.IpAddress});
             }
         }
         

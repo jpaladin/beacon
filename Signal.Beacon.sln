@@ -27,7 +27,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Voice", "Sign
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Channel.BroadLink", "Signal.Beacon.Channel.BroadLink\Signal.Beacon.Channel.BroadLink.csproj", "{152E7409-3F61-472C-B18C-3A72C7268601}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Signal.Beacon.Channel.Tasmota", "Signal.Beacon.Channel.Tasmota\Signal.Beacon.Channel.Tasmota.csproj", "{2D7C3DDA-1CEC-4D92-9650-B321D172D983}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Signal.Beacon.Channel.Tasmota", "Signal.Beacon.Channel.Tasmota\Signal.Beacon.Channel.Tasmota.csproj", "{2D7C3DDA-1CEC-4D92-9650-B321D172D983}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Signal.Beacon.Channel.Signal", "Signal.Beacon.Channel.Signal\Signal.Beacon.Channel.Signal.csproj", "{D5D1219A-EC89-491A-875E-89A88E125342}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -75,6 +77,10 @@ Global
 		{2D7C3DDA-1CEC-4D92-9650-B321D172D983}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2D7C3DDA-1CEC-4D92-9650-B321D172D983}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2D7C3DDA-1CEC-4D92-9650-B321D172D983}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D5D1219A-EC89-491A-875E-89A88E125342}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5D1219A-EC89-491A-875E-89A88E125342}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5D1219A-EC89-491A-875E-89A88E125342}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5D1219A-EC89-491A-875E-89A88E125342}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

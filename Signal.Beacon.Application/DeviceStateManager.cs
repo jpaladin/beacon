@@ -18,6 +18,7 @@ namespace Signal.Beacon.Application
     {
         private readonly IPubSubHub<DeviceTarget> deviceStateHub;
         private readonly ISignalClient signalClient;
+        private readonly IDevicesDao devicesDao;
         private readonly ILogger<DeviceStateManager> logger;
         private readonly ConcurrentDictionary<DeviceContactTarget, object?> states = new();
         private readonly ConcurrentDictionary<DeviceContactTarget, ICollection<IHistoricalValue>> statesHistory = new();
@@ -25,11 +26,13 @@ namespace Signal.Beacon.Application
 
         public DeviceStateManager(
             ISignalClient signalClient,
+            IDevicesDao devicesDao,
             IPubSubHub<DeviceTarget> deviceStateHub,
             ILogger<DeviceStateManager> logger)
         {
             this.deviceStateHub = deviceStateHub ?? throw new ArgumentNullException(nameof(deviceStateHub));
             this.signalClient = signalClient ?? throw new ArgumentNullException(nameof(signalClient));
+            this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -45,12 +48,43 @@ namespace Signal.Beacon.Application
             var currentState = ParseValue(await this.GetStateAsync(target));
             if (currentState == null && setValue == null || (currentState?.Equals(setValue) ?? false))
             {
-                this.logger.LogDebug(
+                this.logger.LogTrace(
                     "Device state ignore because it didn't change. {DeviceId} {Contact}: {Value}",
                     target.Identifier, 
                     target.Contact,
                     setValue);
                 return;
+            }
+
+            // Retrieve contact
+            var contact = await this.devicesDao.GetInputContactAsync(target, cancellationToken);
+            if (contact == null)
+            {
+                this.logger.LogTrace(
+                    "Device contact not found {DeviceId} {Contact}: {Value}. State ignored.",
+                    target.Identifier,
+                    target.Contact,
+                    setValue);
+                return;
+            }
+
+            // Apply noise reducing delta
+            if (contact.DataType == "double" && 
+                contact.NoiseReductionDelta.HasValue)
+            {
+                var currentValueDouble = ParseValueDouble(currentState);
+                var setValueDouble = ParseValueDouble(setValue);
+                if (currentValueDouble != null &&
+                    setValueDouble != null &&
+                    Math.Abs(currentValueDouble.Value - setValueDouble.Value) <= contact.NoiseReductionDelta.Value)
+                {
+                    this.logger.LogTrace(
+                        "Device contact noise reduction threshold not reached. State ignored. {DeviceId} {Contact}: {Value}",
+                        target.Identifier,
+                        target.Contact,
+                        setValue);
+                    return;
+                }
             }
 
             var timeStamp = DateTime.UtcNow;
@@ -83,6 +117,14 @@ namespace Signal.Beacon.Application
                 target.Identifier, 
                 target.Contact,
                 setValue);
+        }
+
+        private static double? ParseValueDouble(object? value)
+        {
+            var valueString = value?.ToString();
+            if (double.TryParse(valueString, out var valueDouble))
+                return valueDouble;
+            return null;
         }
 
         private static object? ParseValue(object? value)

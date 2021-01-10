@@ -185,24 +185,24 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
         private async Task HandleDeviceTopicAsync(string topic, string payload, CancellationToken cancellationToken)
         {
-            var deviceIdentifier = topic.Split("/", StringSplitOptions.RemoveEmptyEntries)
+            var deviceAlias = topic.Split("/", StringSplitOptions.RemoveEmptyEntries)
                 .Skip(1).Take(1)
                 .FirstOrDefault();
-            if (deviceIdentifier == null ||
-                deviceIdentifier == "bridge")
+            if (deviceAlias == null ||
+                deviceAlias == "bridge")
                 return;
 
-            var device = await this.devicesDao.GetByAliasAsync(deviceIdentifier, cancellationToken);
+            var device = await this.devicesDao.GetByAliasAsync(deviceAlias, cancellationToken);
             if (device == null)
             {
-                this.logger.LogDebug("Device {DeviceIdentifier} not found", topic);
+                this.logger.LogDebug("Device {DeviceAlias} not found", deviceAlias);
                 return;
             }
 
             var inputs = device.Endpoints.SelectMany(e => e.Inputs).ToList();
             if (!inputs.Any())
             {
-                this.logger.LogDebug("Device {DeviceIdentifier} has no inputs", topic);
+                this.logger.LogDebug("Device {DeviceAlias} has no inputs", deviceAlias);
                 return;
             }
 
@@ -234,18 +234,30 @@ namespace Signal.Beacon.Zigbee2Mqtt
         {
             var config = JsonSerializer.Deserialize<List<BridgeDevice>>(messagePayload,
                 new JsonSerializerOptions {PropertyNameCaseInsensitive = true});
+            if (config == null) 
+                return;
+
             foreach (var bridgeDevice in config)
             {
-                if (string.IsNullOrWhiteSpace(bridgeDevice.IeeeAddress))
+                try
                 {
-                    this.logger.LogWarning("Invalid IEEE address {IeeeAddress}. Device skipped.", bridgeDevice.IeeeAddress);
-                    continue;
-                }
+                    if (string.IsNullOrWhiteSpace(bridgeDevice.IeeeAddress))
+                    {
+                        this.logger.LogWarning("Invalid IEEE address {IeeeAddress}. Device skipped.",
+                            bridgeDevice.IeeeAddress);
+                        continue;
+                    }
 
-                var existingDevice = await this.devicesDao.GetAsync(bridgeDevice.IeeeAddress, cancellationToken);
-                if (existingDevice == null)
-                    await this.NewDevice(bridgeDevice, cancellationToken);
-                else await this.UpdateDevice(bridgeDevice);
+                    var existingDevice = await this.devicesDao.GetAsync(
+                        $"{Zigbee2MqttChannels.DeviceChannel}/{bridgeDevice.IeeeAddress}", cancellationToken);
+                    if (existingDevice == null)
+                        await this.NewDevice(bridgeDevice, cancellationToken);
+                    else await this.UpdateDevice(bridgeDevice);
+                }
+                catch(Exception ex)
+                {
+                    this.logger.LogWarning(ex, "Failed to configure device {@Device}", bridgeDevice);
+                }
             }
         }
 
@@ -261,7 +273,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
             var deviceConfig = new DeviceConfiguration(
                 bridgeDevice.FriendlyName ?? bridgeDevice.IeeeAddress,
-                $"zigbee2mqtt/{bridgeDevice.IeeeAddress}");
+                $"{Zigbee2MqttChannels.DeviceChannel}/{bridgeDevice.IeeeAddress}");
 
             if (bridgeDevice.Definition != null)
             {

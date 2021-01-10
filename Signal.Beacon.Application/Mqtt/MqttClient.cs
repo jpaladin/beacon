@@ -24,6 +24,8 @@ namespace Signal.Beacon.Application.Mqtt
         private readonly ILogger<MqttClient> logger;
         private IManagedMqttClient? mqttClient;
 
+        private string? clientName;
+
         private readonly Dictionary<string, List<Func<MqttMessage, Task>>> subscriptions = new();
 
 
@@ -35,9 +37,15 @@ namespace Signal.Beacon.Application.Mqtt
 
         public async Task StartAsync(string clientName, string hostAddress, CancellationToken cancellationToken)
         {
+            if (string.IsNullOrWhiteSpace(clientName))
+                throw new ArgumentException("Value cannot be null or whitespace.", nameof(clientName));
+            if (string.IsNullOrWhiteSpace(hostAddress))
+                throw new ArgumentException("Value cannot be null or whitespace.", nameof(hostAddress));
             if (this.mqttClient != null)
                 throw new Exception("Can't start client twice.");
-                        
+
+            this.clientName = clientName;
+
             try
             {
                 var addresses = await Dns.GetHostAddressesAsync(hostAddress);
@@ -61,12 +69,12 @@ namespace Signal.Beacon.Application.Mqtt
             }
             catch (SocketException ex) when (ex.SocketErrorCode == SocketError.HostNotFound)
             {
-                this.logger.LogError("Unable to resolve MQTT host: {HostAddress}", hostAddress);
+                this.logger.LogError("Unable to resolve MQTT host {ClientName}: {HostAddress}", this.clientName, hostAddress);
                 throw;
             }
             catch (Exception ex)
             {
-                this.logger.LogError(ex, "Failed to start MQTT client.");
+                this.logger.LogError(ex, "Failed to start MQTT client {ClientName}.", this.clientName);
                 throw;
             }
         }
@@ -85,7 +93,7 @@ namespace Signal.Beacon.Application.Mqtt
             if (!this.subscriptions.ContainsKey(topic))
             {
                 this.subscriptions.Add(topic, new List<Func<MqttMessage, Task>>());
-                this.logger.LogDebug("Subscribed to topic: {Topic}", topic);
+                this.logger.LogDebug("{ClientName} Subscribed to topic: {Topic}", this.clientName, topic);
             }
 
             this.subscriptions[topic].Add(handler);
@@ -110,7 +118,7 @@ namespace Signal.Beacon.Application.Mqtt
         private async Task MessageHandler(MqttApplicationMessageReceivedEventArgs arg)
         {
             var message = new MqttMessage(this, arg.ApplicationMessage.Topic, Encoding.ASCII.GetString(arg.ApplicationMessage.Payload), arg.ApplicationMessage.Payload);
-            this.logger.LogTrace("Topic {Topic}, Payload: {Payload}", message.Topic, message.Payload);
+            this.logger.LogTrace("{ClientName} Topic {Topic}, Payload: {Payload}", this.clientName, message.Topic, message.Payload);
 
             foreach (var subscription in this.subscriptions
                 .Where(subscription => MqttTopicFilterComparer.IsMatch(arg.ApplicationMessage.Topic, subscription.Key))
@@ -122,20 +130,20 @@ namespace Signal.Beacon.Application.Mqtt
                 }
                 catch (Exception ex)
                 {
-                    this.logger.LogWarning(ex, "Queue subscriber threw exception while processing message.");
+                    this.logger.LogWarning(ex, "{ClientName} Queue subscriber threw exception while processing message.", this.clientName);
                 }
             }
         }
 
         private Task DisconnectedHandler(MqttClientDisconnectedEventArgs arg)
         {
-            this.logger.LogInformation(arg.Exception, "MQTT connection closed.");
+            this.logger.LogInformation(arg.Exception, "MQTT connection closed {ClientName}.", this.clientName);
             return Task.CompletedTask;
         }
 
         private Task ConnectedHandler(MqttClientConnectedEventArgs arg)
         {
-            this.logger.LogInformation("MQTT connected.");
+            this.logger.LogInformation("MQTT connected {ClientName}.", this.clientName);
             return Task.CompletedTask;
         }
         
