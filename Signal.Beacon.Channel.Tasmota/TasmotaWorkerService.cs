@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Signal.Beacon.Application.Mqtt;
+using Signal.Beacon.Core.Architecture;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Configuration;
 using Signal.Beacon.Core.Devices;
@@ -93,13 +94,13 @@ namespace Signal.Beacon.Channel.Tasmota
                 // Signal new device discovered
                 await this.deviceDiscoveryHandler.HandleAsync(
                     new DeviceDiscoveredCommand(
-                        new DeviceConfiguration(
-                            config.DeviceName,
-                            $"{TasmotaChannels.DeviceChannel}/{config.Topic}",
-                            new DeviceEndpoint[]
-                            {
-                                new(TasmotaChannels.DeviceChannel, new []{new DeviceContact("A0", "double"){NoiseReductionDelta = 5}})
-                            })),
+                        config.DeviceName,
+                        $"{TasmotaChannels.DeviceChannel}/{config.Topic}",
+                        new DeviceEndpoint[]
+                        {
+                            new(TasmotaChannels.DeviceChannel,
+                                new[] {new DeviceContact("A0", "double") {NoiseReductionDelta = 5}})
+                        }),
                     this.startCancellationToken);
 
                 // Subscribe for device telemetry

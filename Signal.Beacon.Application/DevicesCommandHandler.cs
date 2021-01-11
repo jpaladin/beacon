@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Signal.Beacon.Core.Devices;
+using Signal.Beacon.Core.Signal;
 
 namespace Signal.Beacon.Application
 {
@@ -10,15 +11,18 @@ namespace Signal.Beacon.Application
     {
         private readonly IDevicesDao devicesDao;
         private readonly IDeviceStateManager deviceStateManager;
+        private readonly ISignalDevicesClient signalClient;
         private readonly ILogger<DevicesCommandHandler> logger;
 
         public DevicesCommandHandler(
             IDevicesDao devicesDao,
             IDeviceStateManager deviceStateManager,
+            ISignalDevicesClient signalClient,
             ILogger<DevicesCommandHandler> logger)
         {
             this.devicesDao = devicesDao;
             this.deviceStateManager = deviceStateManager ?? throw new ArgumentNullException(nameof(deviceStateManager));
+            this.signalClient = signalClient ?? throw new ArgumentNullException(nameof(signalClient));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -29,11 +33,37 @@ namespace Signal.Beacon.Application
 
         public async Task HandleAsync(DeviceDiscoveredCommand command, CancellationToken cancellationToken)
         {
-            this.logger.LogInformation(
-                "New device discovered: {DeviceAlias} ({DeviceIdentifier})",
-                command.Device.Alias, command.Device.Identifier);
+            this.logger.LogDebug(
+                "New device discovered: {DeviceAlias} ({DeviceIdentifier}). Registering...",
+                command.Alias, command.Identifier);
 
-            await this.devicesDao.UpdateDeviceAsync(command.Device.Identifier, command.Device, cancellationToken);
+            try
+            {
+                // Register device to Signal API
+                var deviceId = await this.signalClient.RegisterDeviceAsync(command, cancellationToken);
+
+                await this.devicesDao.UpdateDeviceAsync(
+                    command.Identifier,
+                    new DeviceConfiguration(
+                        deviceId,
+                        command.Alias,
+                        command.Identifier,
+                        command.Endpoints)
+                    {
+                        Manufacturer = command.Manufacturer,
+                        Model = command.Model
+                    }, cancellationToken);
+
+                this.logger.LogInformation(
+                    "New device discovered: {DeviceAlias} ({DeviceIdentifier})",
+                    command.Alias, command.Identifier);
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogDebug(ex, "Failed to register new device: {DeviceAlias} ({DeviceIdentifier})",
+                    command.Alias, command.Identifier);
+                throw;
+            }
         }
     }
 }

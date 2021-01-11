@@ -16,7 +16,9 @@ namespace Signal.Beacon.Core.Devices
             DateTime startTimeStamp, DateTime endTimeStamp, CancellationToken cancellationToken);
 
         Task<object?> GetStateAsync(DeviceContactTarget deviceTarget, CancellationToken cancellationToken);
-        Task UpdateDeviceAsync(string deviceIdentifier, DeviceConfiguration deviceConfiguration, CancellationToken cancellationToken);
+        
+        Task UpdateDeviceAsync(string deviceId, DeviceConfiguration deviceConfiguration, CancellationToken cancellationToken);
+
         Task<DeviceConfiguration?> GetByAliasAsync(string alias, CancellationToken cancellationToken);
 
         Task<DeviceContact?> GetInputContactAsync(DeviceTarget target, CancellationToken cancellationToken);

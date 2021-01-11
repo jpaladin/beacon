@@ -3,21 +3,31 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.Extensions;
+using Signal.Beacon.Core.Signal;
 using Signal.Beacon.Core.Values;
 
 namespace Signal.Beacon.Application
 {
     public class DevicesDao : IDevicesDao
     {
+        private readonly ISignalDevicesClient devicesClient;
         private readonly Lazy<IDeviceStateManager> deviceStateManager;
+        private readonly ILogger<DevicesDao> logger;
         private Dictionary<string, DeviceConfiguration>? devices;
+        private readonly object cacheLock = new();
+        private Task<IEnumerable<DeviceConfiguration>>? getDevicesTask;
 
         public DevicesDao(
-            Lazy<IDeviceStateManager> deviceStateManager)
+            ISignalDevicesClient devicesClient,
+            Lazy<IDeviceStateManager> deviceStateManager,
+            ILogger<DevicesDao> logger)
         {
+            this.devicesClient = devicesClient ?? throw new ArgumentNullException(nameof(devicesClient));
             this.deviceStateManager = deviceStateManager ?? throw new ArgumentNullException(nameof(deviceStateManager));
+            this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         public async Task<DeviceConfiguration?> GetByAliasAsync(string alias, CancellationToken cancellationToken)
@@ -61,11 +71,11 @@ namespace Signal.Beacon.Application
         public Task<object?> GetStateAsync(DeviceContactTarget deviceTarget, CancellationToken cancellationToken) => 
             this.deviceStateManager.Value.GetStateAsync(deviceTarget);
 
-        public async Task UpdateDeviceAsync(string deviceIdentifier, DeviceConfiguration deviceConfiguration, CancellationToken cancellationToken)
+        public async Task UpdateDeviceAsync(string identifier, DeviceConfiguration deviceConfiguration, CancellationToken cancellationToken)
         {
             await this.CacheDevicesAsync(cancellationToken);
 
-            this.devices?.AddOrSet(deviceIdentifier, deviceConfiguration);
+            this.devices?.AddOrSet(identifier, deviceConfiguration);
         }
 
         private async Task CacheDevicesAsync(CancellationToken cancellationToken)
@@ -73,9 +83,34 @@ namespace Signal.Beacon.Application
             if (this.devices != null)
                 return;
 
-            this.devices = new Dictionary<string, DeviceConfiguration>();
-            // TODO: Load when implemented updating devices
-            //this.devices = (await this.configurationService.LoadDevicesAsync()).ToDictionary(d => d.Identifier);
+            try
+            {
+                this.getDevicesTask ??= this.devicesClient.GetDevicesAsync(cancellationToken);
+
+                var remoteDevices = (await this.getDevicesTask).ToList();
+
+                lock (this.cacheLock)
+                {
+                    if (this.devices != null)
+                        return;
+
+                    try
+                    {
+                        this.devices = new Dictionary<string, DeviceConfiguration>();
+                        foreach (var deviceConfiguration in remoteDevices)
+                            this.devices.Add(deviceConfiguration.Identifier, deviceConfiguration);
+                    }
+                    finally
+                    {
+                        this.getDevicesTask = null;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                this.logger.LogDebug(ex, "Failed to cache devices.");
+                throw;
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -5,6 +6,8 @@ namespace Signal.Beacon.Core.Devices
 {
     public class DeviceConfiguration
     {
+        public string Id { get; }
+
         public string Alias { get; }
 
         public bool IsConfigured { get; }
@@ -17,10 +20,11 @@ namespace Signal.Beacon.Core.Devices
         
         public string? Manufacturer { get; set; }
 
-        public DeviceConfiguration(string alias, string identifier, IEnumerable<DeviceEndpoint>? endpoints = null)
+        public DeviceConfiguration(string id, string alias, string identifier, IEnumerable<DeviceEndpoint>? endpoints = null)
         {
-            this.Alias = alias;
-            this.Identifier = identifier;
+            this.Id = id ?? throw new ArgumentNullException(nameof(id));
+            this.Alias = alias ?? throw new ArgumentNullException(nameof(alias));
+            this.Identifier = identifier ?? throw new ArgumentNullException(nameof(identifier));
             this.Endpoints = endpoints ?? Enumerable.Empty<DeviceEndpoint>();
             this.IsConfigured = true;
         }

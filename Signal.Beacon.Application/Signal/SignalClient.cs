@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -7,24 +8,20 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Signal.Beacon.Application.Auth;
-using Signal.Beacon.Core.Devices;
-using Signal.Beacon.Core.Signal;
 
 namespace Signal.Beacon.Application.Signal
 {
-    public class SignalClient : ISignalClient, ISignalClientAuthFlow
+    internal class SignalClient : ISignalClient, ISignalClientAuthFlow
     {
-        private readonly ILogger<SignalClient> logger;
-
-        private const string SignalApiUrl = "https://signal-api.azurewebsites.net";
+        private const string SignalApiUrl = "https://signal-api.azurewebsites.net/api";
         //private const string SignalApiUrl = "http://localhost:7071";
 
-        private static readonly string SignalApiBeaconRegisterUrl = $"{SignalApiUrl}/api/beacons/register";
-        private static readonly string SignalApiBeaconRefreshTokenUrl = $"{SignalApiUrl}/api/beacons/refresh-token";
-        private static readonly string SignalApiDevicesStatePublishUrl = $"{SignalApiUrl}/api/devices/state";
-        
+        private static readonly string SignalApiBeaconRefreshTokenUrl = "/beacons/refresh-token";
+
+        private readonly ILogger<SignalClient> logger;
         private readonly HttpClient client = new();
         private AuthToken? token;
+        private Task<SignalBeaconRefreshTokenResponseDto?>? renewTokenTask;
 
 
         public SignalClient(ILogger<SignalClient> logger)
@@ -53,73 +50,80 @@ namespace Signal.Beacon.Application.Signal
                 return;
 
             // Request new token from Signal API
-            var response = await this.PostAsJsonAsync<SignalBeaconRefreshTokenRequestDto, SignalBeaconRefreshTokenResponseDto>(
+            this.renewTokenTask ??= this.PostAsJsonAsync<SignalBeaconRefreshTokenRequestDto, SignalBeaconRefreshTokenResponseDto>(
                 SignalApiBeaconRefreshTokenUrl,
-                new SignalBeaconRefreshTokenRequestDto(this.token.RefreshToken), 
+                new SignalBeaconRefreshTokenRequestDto(this.token.RefreshToken),
                 cancellationToken,
                 false);
+
+            // Wait for response
+            var response = await this.renewTokenTask;
             if (response == null)
                 throw new Exception("Failed to retrieve refreshed token.");
 
-            // Assign new token
-            this.AssignToken(new AuthToken(response.AccessToken, this.token.RefreshToken, response.Expire));
-            this.logger.LogDebug("Token successfully refreshed. Expires on: {TokenExpire}", this.token.Expire);
-        }
+            // Check if someone else assigned new token already
+            if (DateTime.UtcNow < this.token.Expire)
+                return;
 
-        public async Task DevicesPublishStateAsync(DeviceTarget target, object? value, DateTime timeStamp, CancellationToken cancellationToken)
-        {
-            var (channel, identifier, contact) = target;
-            var data = new SignalDeviceStatePublishDto
+            try
             {
-                DeviceIdentifier = identifier,
-                ChannelName = channel,
-                ContactName = contact,
-                TimeStamp = timeStamp,
-                ValueSerialized = SerializeValue(value)
-            };
-            
-            await this.PostAsJsonAsync(SignalApiDevicesStatePublishUrl, data, cancellationToken);
-        }
-
-        private static string? SerializeValue(object? value) =>
-            value switch
+                // Assign new token
+                this.AssignToken(new AuthToken(response.AccessToken, this.token.RefreshToken, response.Expire));
+                this.logger.LogDebug("Token successfully refreshed. Expires on: {TokenExpire}", this.token.Expire);
+            }
+            finally
             {
-                null => null,
-                string stringValue => stringValue,
-                _ => JsonSerializer.Serialize(value)
-            };
-
-        public async Task RegisterBeaconAsync(string beaconId, CancellationToken cancellationToken)
-        {
-            await this.PostAsJsonAsync(
-                SignalApiBeaconRegisterUrl, 
-                new SignalBeaconRegisterRequestDto(beaconId),
-                cancellationToken);
+                this.renewTokenTask = null;
+            }
         }
 
-        private async Task PostAsJsonAsync<T>(string url, T data, CancellationToken cancellationToken)
+        public async Task PostAsJsonAsync<T>(string url, T data, CancellationToken cancellationToken)
         {
             await this.RenewTokenIfExpiredAsync(cancellationToken);
 
-            using var response = await this.client.PostAsJsonAsync(url, data, cancellationToken);
+            using var response = await this.client.PostAsJsonAsync($"{SignalApiUrl}{url}", data, cancellationToken);
             if (!response.IsSuccessStatusCode)
-                throw new Exception($"Signal API POST {url} failed. Reason: {await response.Content.ReadAsStringAsync(cancellationToken)} ({response.StatusCode})");
+                throw new Exception($"Signal API POST {SignalApiUrl}{url} failed. Reason: {await response.Content.ReadAsStringAsync(cancellationToken)} ({response.StatusCode})");
         }
 
-        private async Task<TResponse?> PostAsJsonAsync<TRequest, TResponse>(string url, TRequest data, CancellationToken cancellationToken, bool renewTokenIfExpired = true)
+        public async Task<TResponse?> PostAsJsonAsync<TRequest, TResponse>(string url, TRequest data, CancellationToken cancellationToken, bool renewTokenIfExpired = true)
         {
             if (renewTokenIfExpired)
                 await this.RenewTokenIfExpiredAsync(cancellationToken);
 
-            using var response = await this.client.PostAsJsonAsync(url, data, cancellationToken);
-            if (!response.IsSuccessStatusCode)
+            using var response = await this.client.PostAsJsonAsync($"{SignalApiUrl}{url}", data, cancellationToken);
+            if (response.IsSuccessStatusCode)
             {
-                var responseContent = await GetResponseContentStringAsync(response, cancellationToken);
-                throw new Exception($"Signal API POST {url} failed. Reason: {responseContent} ({response.StatusCode})");
+                if (response.StatusCode == HttpStatusCode.NoContent)
+                    throw new Exception($"API returned NOCONTENT but we expected response of type {typeof(TResponse).FullName}");
+
+                try
+                {
+                    var responseData = await response.Content.ReadFromJsonAsync<TResponse>(
+                        new JsonSerializerOptions {PropertyNameCaseInsensitive = true},
+                        cancellationToken);
+                    return responseData;
+                }
+                catch (JsonException ex)
+                {
+                    var responseDataString = await response.Content.ReadAsStringAsync(cancellationToken);
+                    this.logger.LogTrace(ex, "Failed to read response JSON.");
+                    this.logger.LogDebug("Reading response JSON failed. Raw: {DataString}", responseDataString);
+                    throw;
+                }
             }
 
-            return await response.Content.ReadFromJsonAsync<TResponse>(
-                new JsonSerializerOptions {PropertyNameCaseInsensitive = true}, 
+            var responseContent = await this.GetResponseContentStringAsync(response, cancellationToken);
+            throw new Exception($"Signal API POST {SignalApiUrl}{url} failed. Reason: {responseContent} ({response.StatusCode})");
+        }
+
+        public async Task<T?> GetAsync<T>(string url, CancellationToken cancellationToken)
+        {
+            await this.RenewTokenIfExpiredAsync(cancellationToken);
+
+            return await this.client.GetFromJsonAsync<T>(
+                $"{SignalApiUrl}{url}", 
+                new JsonSerializerOptions {PropertyNameCaseInsensitive = true},
                 cancellationToken);
         }
 

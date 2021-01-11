@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Signal.Beacon.Core.Devices
+namespace Signal.Beacon.Core.Architecture
 {
     public interface ICommandHandler<in T> where T : ICommand
     {

@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Signal.Beacon.Application.Conducts;
 using Signal.Beacon.Application.PubSub;
 using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.Extensions;
@@ -17,7 +16,7 @@ namespace Signal.Beacon.Application
     public class DeviceStateManager : IDeviceStateManager
     {
         private readonly IPubSubHub<DeviceTarget> deviceStateHub;
-        private readonly ISignalClient signalClient;
+        private readonly ISignalDevicesClient signalClient;
         private readonly IDevicesDao devicesDao;
         private readonly ILogger<DeviceStateManager> logger;
         private readonly ConcurrentDictionary<DeviceContactTarget, object?> states = new();
@@ -25,7 +24,7 @@ namespace Signal.Beacon.Application
 
 
         public DeviceStateManager(
-            ISignalClient signalClient,
+            ISignalDevicesClient signalClient,
             IDevicesDao devicesDao,
             IPubSubHub<DeviceTarget> deviceStateHub,
             ILogger<DeviceStateManager> logger)
@@ -51,6 +50,17 @@ namespace Signal.Beacon.Application
                 this.logger.LogTrace(
                     "Device state ignore because it didn't change. {DeviceId} {Contact}: {Value}",
                     target.Identifier, 
+                    target.Contact,
+                    setValue);
+                return;
+            }
+
+            // Retrieve device
+            var device = await this.devicesDao.GetAsync(target.Identifier, cancellationToken);
+            if (device == null)
+            {
+                this.logger.LogDebug("Device with identifier not found {DeviceId} {Contact}: {Value}. State ignored.",
+                    target.Identifier,
                     target.Contact,
                     setValue);
                 return;
@@ -97,7 +107,7 @@ namespace Signal.Beacon.Application
             // Publish state changed to Signal API
             try
             {
-                await this.signalClient.DevicesPublishStateAsync(target, setValue, timeStamp, cancellationToken);
+                await this.signalClient.DevicesPublishStateAsync(device.Id, target, setValue, timeStamp, cancellationToken);
             }
             catch (Exception ex) when (ex.Message.Contains("IDX10223"))
             {

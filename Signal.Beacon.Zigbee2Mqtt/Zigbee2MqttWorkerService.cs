@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json.Linq;
 using Signal.Beacon.Application.Mqtt;
+using Signal.Beacon.Core.Architecture;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Configuration;
 using Signal.Beacon.Core.Devices;
@@ -271,7 +272,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
             if (string.IsNullOrWhiteSpace(bridgeDevice.IeeeAddress))
                 throw new ArgumentException("Device IEEE address is required.");
 
-            var deviceConfig = new DeviceConfiguration(
+            var deviceConfig = new DeviceDiscoveredCommand(
                 bridgeDevice.FriendlyName ?? bridgeDevice.IeeeAddress,
                 $"{Zigbee2MqttChannels.DeviceChannel}/{bridgeDevice.IeeeAddress}");
 
@@ -327,14 +328,15 @@ namespace Signal.Beacon.Zigbee2Mqtt
                 }
             }
 
-            await this.deviceDiscoverHandler.HandleAsync(new DeviceDiscoveredCommand(deviceConfig), cancellationToken);
-            await this.RefreshDeviceAsync(deviceConfig);
+            await this.deviceDiscoverHandler.HandleAsync(deviceConfig, cancellationToken);
+            await this.RefreshDeviceAsync(deviceConfig.Identifier, cancellationToken);
         }
 
-        private async Task RefreshDeviceAsync(DeviceConfiguration device)
+        private async Task RefreshDeviceAsync(string deviceIdentifier, CancellationToken cancellationToken)
         {
             try
             {
+                var device = await this.devicesDao.GetAsync(deviceIdentifier, cancellationToken);
                 var inputContacts =
                     device.Endpoints.SelectMany(e => e.Inputs.Where(i => !i.IsReadonly).Select(ei => ei.Name));
 

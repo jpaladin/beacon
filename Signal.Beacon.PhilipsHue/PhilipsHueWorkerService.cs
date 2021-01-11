@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Q42.HueApi;
 using Q42.HueApi.Interfaces;
+using Signal.Beacon.Core.Architecture;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Configuration;
 using Signal.Beacon.Core.Devices;
@@ -222,21 +223,19 @@ namespace Signal.Beacon.PhilipsHue
         private void NewLight(string bridgeId, Light light, CancellationToken cancellationToken)
         {
             this.lights.Add(light.UniqueId, light.AsPhilipsHueLight(bridgeId));
-
-            // Construct new device configuration
-            var deviceConfig = new DeviceConfiguration(light.Name, ToSignalDeviceId(light.UniqueId))
-            {
-                Manufacturer = light.ManufacturerName,
-                Model = light.ModelId,
-                Endpoints = new[]
+            
+            this.deviceDiscoveryHandler.HandleAsync(
+                new DeviceDiscoveredCommand(light.Name, ToSignalDeviceId(light.UniqueId))
                 {
-                    new DeviceEndpoint("main",
-                        new[] {new DeviceContact("on", "bool")},
-                        new[] {new DeviceContact("on", "bool")})
-                }
-            };
-
-            this.deviceDiscoveryHandler.HandleAsync(new DeviceDiscoveredCommand(deviceConfig), cancellationToken);
+                    Manufacturer = light.ManufacturerName,
+                    Model = light.ModelId,
+                    Endpoints = new[]
+                    {
+                        new DeviceEndpoint("main",
+                            new[] {new DeviceContact("on", "bool")},
+                            new[] {new DeviceContact("on", "bool")})
+                    }
+                }, cancellationToken);
         }
 
         private static string ToPhilipsHueDeviceId(string signalId) => signalId[(PhilipsHueChannels.DeviceChannel.Length + 1)..];

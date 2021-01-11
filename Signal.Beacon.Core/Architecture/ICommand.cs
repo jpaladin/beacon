@@ -1,9 +1,6 @@
-using System;
-
-namespace Signal.Beacon.Core.Devices
+namespace Signal.Beacon.Core.Architecture
 {
     public interface ICommand
     {
-        Guid Id { get; }
     }
 }

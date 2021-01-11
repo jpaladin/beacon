@@ -8,7 +8,10 @@ namespace Signal.Beacon.Application.Signal
     {
         public static IServiceCollection AddSignalApi(this IServiceCollection services)
         {
-            return services.AddSingleton<ISignalClient, ISignalClientAuthFlow, SignalClient>();
+            return services
+                .AddTransient<ISignalDevicesClient, SignalDevicesClient>()
+                .AddTransient<ISignalBeaconClient, SignalBeaconClient>()
+                .AddSingleton<ISignalClient, ISignalClientAuthFlow, SignalClient>();
         }
     }
 }

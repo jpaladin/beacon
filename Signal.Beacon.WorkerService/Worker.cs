@@ -18,7 +18,7 @@ namespace Signal.Beacon.WorkerService
 {
     public class Worker : BackgroundService
     {
-        private readonly ISignalClient signalClient;
+        private readonly ISignalBeaconClient signalClient;
         private readonly ISignalClientAuthFlow signalClientAuthFlow;
         private readonly Lazy<IEnumerable<IWorkerService>> workerServices;
         private readonly IConfigurationService configurationService;
@@ -26,7 +26,7 @@ namespace Signal.Beacon.WorkerService
         private readonly ILogger<Worker> logger;
 
         public Worker(
-            ISignalClient signalClient,
+            ISignalBeaconClient signalClient,
             ISignalClientAuthFlow signalClientAuthFlow,
             Lazy<IEnumerable<IWorkerService>> workerServices, 
             IConfigurationService configurationService,

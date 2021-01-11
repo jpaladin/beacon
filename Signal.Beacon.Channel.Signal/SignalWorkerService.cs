@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Signal.Beacon.Application.Mqtt;
+using Signal.Beacon.Core.Architecture;
 using Signal.Beacon.Core.Conducts;
 using Signal.Beacon.Core.Configuration;
 using Signal.Beacon.Core.Devices;
@@ -94,14 +95,13 @@ namespace Signal.Beacon.Channel.Signal
                 // Signal new device discovered
                 await this.deviceDiscoveryHandler.HandleAsync(
                     new DeviceDiscoveredCommand(
-                        new DeviceConfiguration(
-                            config.Hostname,
-                            $"{SignalChannels.DeviceChannel}/{config.MqttTopic}",
-                            new DeviceEndpoint[]
-                            {
-                                // TODO: Parse endpoint configuration
-                                new(SignalChannels.DeviceChannel, new []{new DeviceContact("locked", "bool")})
-                            })),
+                        config.Hostname,
+                        $"{SignalChannels.DeviceChannel}/{config.MqttTopic}",
+                        new DeviceEndpoint[]
+                        {
+                            // TODO: Parse endpoint configuration
+                            new(SignalChannels.DeviceChannel, new[] {new DeviceContact("locked", "bool")})
+                        }),
                     this.startCancellationToken);
 
                 // Subscribe for device telemetry
