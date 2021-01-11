@@ -19,6 +19,7 @@ namespace Signal.Beacon.Channel.Tasmota
     {
         private const string ConfigurationFileName = "Tasmota.json";
 
+        private readonly IDevicesDao devicesDao;
         private readonly IMqttClientFactory mqttClientFactory;
         private readonly IMqttDiscoveryService mqttDiscoveryService;
         private readonly IConfigurationService configurationService;
@@ -32,6 +33,7 @@ namespace Signal.Beacon.Channel.Tasmota
         private CancellationToken startCancellationToken;
 
         public TasmotaWorkerService(
+            IDevicesDao devicesDao,
             IMqttClientFactory mqttClientFactory,
             IMqttDiscoveryService mqttDiscoveryService,
             IConfigurationService configurationService,
@@ -40,6 +42,7 @@ namespace Signal.Beacon.Channel.Tasmota
             ICommandHandler<DeviceStateSetCommand> deviceStateHandler,
             ILogger<TasmotaWorkerService> logger)
         {
+            this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
             this.mqttClientFactory = mqttClientFactory ?? throw new ArgumentNullException(nameof(mqttClientFactory));
             this.mqttDiscoveryService = mqttDiscoveryService ?? throw new ArgumentNullException(nameof(mqttDiscoveryService));
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
@@ -91,24 +94,43 @@ namespace Signal.Beacon.Channel.Tasmota
             var discoveryType = message.Topic.Split("/", StringSplitOptions.RemoveEmptyEntries).Last();
             if (discoveryType == "config")
             {
-                // Signal new device discovered
-                await this.deviceDiscoveryHandler.HandleAsync(
-                    new DeviceDiscoveredCommand(
-                        config.DeviceName,
-                        $"{TasmotaChannels.DeviceChannel}/{config.Topic}",
-                        new DeviceEndpoint[]
-                        {
-                            new(TasmotaChannels.DeviceChannel,
-                                new[] {new DeviceContact("A0", "double") {NoiseReductionDelta = 5}})
-                        }),
-                    this.startCancellationToken);
+                var deviceIdentifier = $"{TasmotaChannels.DeviceChannel}/{config.Topic}";
+
+                try
+                {
+                    var existingDevice = await this.devicesDao.GetAsync(deviceIdentifier, this.startCancellationToken);
+                    if (existingDevice == null)
+                    {
+                        // Signal new device discovered
+                        await this.deviceDiscoveryHandler.HandleAsync(
+                            new DeviceDiscoveredCommand(
+                                config.DeviceName,
+                                deviceIdentifier,
+                                new DeviceEndpoint[]
+                                {
+                                    new(TasmotaChannels.DeviceChannel,
+                                        new[] {new DeviceContact("A0", "double") {NoiseReductionDelta = 5}})
+                                }),
+                            this.startCancellationToken);
+                    }
+                    else
+                    {
+                        throw new NotImplementedException();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogTrace(ex, "Failed to configure device {Name} ({Identifier})", config.DeviceName, deviceIdentifier);
+                    this.logger.LogWarning("Failed to configure device {Name} ({Identifier})", config.DeviceName, deviceIdentifier);
+                }
 
                 // Subscribe for device telemetry
                 var telemetrySubscribeTopic = config.FullTopic
                     .Replace("%topic%", config.Topic)
                     .Replace("%prefix%", config.TopicPrefixes[2]);
+
                 await message.Client.SubscribeAsync($"{telemetrySubscribeTopic}#",
-                    msg => this.TelemetryHandlerAsync($"{TasmotaChannels.DeviceChannel}/{config.Topic}", msg));
+                    msg => this.TelemetryHandlerAsync(deviceIdentifier, msg));
             }
             else if (discoveryType == "sensors")
             {

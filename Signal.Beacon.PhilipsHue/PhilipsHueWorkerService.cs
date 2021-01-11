@@ -202,22 +202,38 @@ namespace Signal.Beacon.PhilipsHue
                 var remoteLights = await bridge.LocalClient.GetLightsAsync();
                 foreach (var light in remoteLights)
                 {
-                    if (string.IsNullOrWhiteSpace(light.UniqueId))
+                    try
                     {
-                        this.logger.LogWarning("Device doesn't have unique ID.");
-                        continue;
-                    }
+                        if (string.IsNullOrWhiteSpace(light.UniqueId))
+                        {
+                            this.logger.LogWarning("Device doesn't have unique ID.");
+                            continue;
+                        }
 
-                    var existingDevice = await this.devicesDao.GetAsync(light.UniqueId, cancellationToken);
-                    if (existingDevice == null)
-                        this.NewLight(bridgeId, light, cancellationToken);
-                    else throw new NotImplementedException("Updating existing device not supported yet.");
+                        var existingDevice =
+                            await this.devicesDao.GetAsync(ToSignalDeviceId(light.UniqueId), cancellationToken);
+                        if (existingDevice == null)
+                            this.NewLight(bridgeId, light, cancellationToken);
+                        else this.UpdateLight(bridgeId, light, cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        this.logger.LogTrace(ex, "Failed to configure device {Name} ({Address})", light.Name, light.UniqueId);
+                        this.logger.LogWarning(
+                            "Failed to configure device {Name} ({Address})", 
+                            light.Name, light.UniqueId);
+                    }
                 }
             }
             catch (Exception ex)
             {
                 this.logger.LogWarning(ex, "Failed to sync devices.");
             }
+        }
+
+        private void UpdateLight(string bridgeId, Light light, CancellationToken cancellationToken)
+        {
+            throw new NotImplementedException();
         }
 
         private void NewLight(string bridgeId, Light light, CancellationToken cancellationToken)

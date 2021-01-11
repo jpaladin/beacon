@@ -19,6 +19,7 @@ namespace Signal.Beacon.Channel.Signal
     {
         private const string ConfigurationFileName = "Signal.json";
 
+        private readonly IDevicesDao devicesDao;
         private readonly IMqttClientFactory mqttClientFactory;
         private readonly IMqttDiscoveryService mqttDiscoveryService;
         private readonly IConfigurationService configurationService;
@@ -32,6 +33,7 @@ namespace Signal.Beacon.Channel.Signal
         private CancellationToken startCancellationToken;
 
         public SignalWorkerService(
+            IDevicesDao devicesDao,
             IMqttClientFactory mqttClientFactory,
             IMqttDiscoveryService mqttDiscoveryService,
             IConfigurationService configurationService,
@@ -40,6 +42,7 @@ namespace Signal.Beacon.Channel.Signal
             ICommandHandler<DeviceStateSetCommand> deviceStateHandler,
             ILogger<SignalWorkerService> logger)
         {
+            this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
             this.mqttClientFactory = mqttClientFactory ?? throw new ArgumentNullException(nameof(mqttClientFactory));
             this.mqttDiscoveryService = mqttDiscoveryService ?? throw new ArgumentNullException(nameof(mqttDiscoveryService));
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
@@ -92,22 +95,41 @@ namespace Signal.Beacon.Channel.Signal
             var discoveryType = message.Topic.Split("/", StringSplitOptions.RemoveEmptyEntries).Last();
             if (discoveryType == "config")
             {
-                // Signal new device discovered
-                await this.deviceDiscoveryHandler.HandleAsync(
-                    new DeviceDiscoveredCommand(
-                        config.Hostname,
-                        $"{SignalChannels.DeviceChannel}/{config.MqttTopic}",
-                        new DeviceEndpoint[]
-                        {
-                            // TODO: Parse endpoint configuration
-                            new(SignalChannels.DeviceChannel, new[] {new DeviceContact("locked", "bool")})
-                        }),
-                    this.startCancellationToken);
+                var deviceIdentifier = $"{SignalChannels.DeviceChannel}/{config.MqttTopic}";
 
-                // Subscribe for device telemetry
-                var telemetrySubscribeTopic = $"signal/{config.MqttTopic}/#";
-                await message.Client.SubscribeAsync(telemetrySubscribeTopic,
-                    msg => this.TelemetryHandlerAsync($"{SignalChannels.DeviceChannel}/{config.MqttTopic}", msg));
+                try
+                {
+                    var existingDevice = await this.devicesDao.GetAsync(deviceIdentifier, this.startCancellationToken);
+                    if (existingDevice == null)
+                    {
+                        // Signal new device discovered
+                        await this.deviceDiscoveryHandler.HandleAsync(
+                            new DeviceDiscoveredCommand(
+                                config.Hostname,
+                                deviceIdentifier,
+                                new DeviceEndpoint[]
+                                {
+                                    // TODO: Parse endpoint configuration
+                                    new(SignalChannels.DeviceChannel, new[] {new DeviceContact("locked", "bool")})
+                                }),
+                            this.startCancellationToken);
+
+                        // Subscribe for device telemetry
+                        var telemetrySubscribeTopic = $"signal/{config.MqttTopic}/#";
+                        await message.Client.SubscribeAsync(telemetrySubscribeTopic,
+                            msg => this.TelemetryHandlerAsync($"{SignalChannels.DeviceChannel}/{config.MqttTopic}",
+                                msg));
+                    }
+                    else
+                    {
+                        throw new NotImplementedException();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    this.logger.LogTrace(ex, "Failed to configure device {Name} ({Identifier})", config.Hostname, deviceIdentifier);
+                    this.logger.LogWarning("Failed to configure device {Name} ({Identifier})", config.Hostname, deviceIdentifier);
+                }
 
                 // Publish telemetry refresh request
                 await message.Client.PublishAsync($"signal/{config.MqttTopic}/get", "get");

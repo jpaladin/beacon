@@ -257,7 +257,8 @@ namespace Signal.Beacon.Zigbee2Mqtt
                 }
                 catch(Exception ex)
                 {
-                    this.logger.LogWarning(ex, "Failed to configure device {@Device}", bridgeDevice);
+                    this.logger.LogTrace(ex, "Device configuration failed.");
+                    this.logger.LogWarning("Failed to configure device {Name} ({Address})", bridgeDevice.FriendlyName, bridgeDevice.IeeeAddress);
                 }
             }
         }
