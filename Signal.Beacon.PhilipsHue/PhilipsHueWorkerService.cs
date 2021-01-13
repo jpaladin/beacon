@@ -236,7 +236,7 @@ namespace Signal.Beacon.PhilipsHue
                     Model = light.ModelId,
                     Endpoints = new[]
                     {
-                        new DeviceEndpoint("main",
+                        new DeviceEndpoint(PhilipsHueChannels.DeviceChannel,
                             new[]
                             {
                                 new DeviceContact("on", "bool", DeviceContactAccess.Get | DeviceContactAccess.Write)
