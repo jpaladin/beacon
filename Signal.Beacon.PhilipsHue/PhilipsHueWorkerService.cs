@@ -239,7 +239,7 @@ namespace Signal.Beacon.PhilipsHue
                         new DeviceEndpoint(PhilipsHueChannels.DeviceChannel,
                             new[]
                             {
-                                new DeviceContact("on", "bool", DeviceContactAccess.Get | DeviceContactAccess.Write)
+                                new DeviceContact("on", "bool", DeviceContactAccess.Read | DeviceContactAccess.Write)
                             })
                     }
                 }, cancellationToken);
