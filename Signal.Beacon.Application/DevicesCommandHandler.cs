@@ -34,13 +34,15 @@ namespace Signal.Beacon.Application
         public async Task HandleAsync(DeviceDiscoveredCommand command, CancellationToken cancellationToken)
         {
             this.logger.LogDebug(
-                "New device discovered: {DeviceAlias} ({DeviceIdentifier}). Registering...",
+                "New device discovered: {DeviceAlias} ({DeviceIdentifier}).",
                 command.Alias, command.Identifier);
 
             try
             {
-                // Register device to Signal API
-                var deviceId = await this.signalClient.RegisterDeviceAsync(command, cancellationToken);
+                var deviceId = (await this.devicesDao.GetAsync(command.Identifier, cancellationToken))?.Id;
+                if (string.IsNullOrWhiteSpace(deviceId))
+                    deviceId = await this.signalClient.RegisterDeviceAsync(command, cancellationToken);
+                else await this.signalClient.UpdateDeviceAsync(deviceId, command, cancellationToken);
 
                 await this.devicesDao.UpdateDeviceAsync(
                     command.Identifier,
@@ -55,12 +57,12 @@ namespace Signal.Beacon.Application
                     }, cancellationToken);
 
                 this.logger.LogInformation(
-                    "New device discovered: {DeviceAlias} ({DeviceIdentifier})",
+                    "Device discovered successfully: {DeviceAlias} ({DeviceIdentifier})",
                     command.Alias, command.Identifier);
             }
             catch (Exception ex)
             {
-                this.logger.LogDebug(ex, "Failed to register new device: {DeviceAlias} ({DeviceIdentifier})",
+                this.logger.LogDebug(ex, "Failed to discover device: {DeviceAlias} ({DeviceIdentifier})",
                     command.Alias, command.Identifier);
                 throw;
             }

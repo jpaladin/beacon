@@ -44,7 +44,8 @@ namespace Signal.Beacon.Application
             var device = await this.GetAsync(target.Identifier, cancellationToken);
             return device?.Endpoints
                 .Where(d => d.Channel == target.Channel)
-                .SelectMany(d => d.Inputs)
+                .SelectMany(d => d.Contacts)
+                .Where(c => c.Access.HasFlag(DeviceContactAccess.Read) || c.Access.HasFlag(DeviceContactAccess.Get))
                 .FirstOrDefault(c => c.Name == target.Contact);
         }
 

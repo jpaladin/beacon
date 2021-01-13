@@ -14,7 +14,7 @@ namespace Signal.Beacon.Core.Devices
 
         public string Identifier { get; }
 
-        public IEnumerable<DeviceEndpoint> Endpoints { get; set; }
+        public IEnumerable<DeviceEndpoint> Endpoints { get; }
 
         public string? Model { get; set; }
         

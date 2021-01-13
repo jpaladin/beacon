@@ -7,18 +7,14 @@ namespace Signal.Beacon.Core.Devices
     {
         public string Channel { get; }
 
-        public IEnumerable<DeviceContact> Inputs { get; }
-
-        public IEnumerable<DeviceContact> Outputs { get; }
+        public IEnumerable<DeviceContact> Contacts { get; }
 
         public DeviceEndpoint(
             string channel,
-            IEnumerable<DeviceContact>? inputs = null,
-            IEnumerable<DeviceContact>? outputs = null)
+            IEnumerable<DeviceContact>? contacts = null)
         {
             this.Channel = channel;
-            this.Inputs = inputs ?? Enumerable.Empty<DeviceContact>();
-            this.Outputs = outputs ?? Enumerable.Empty<DeviceContact>();
+            this.Contacts = contacts ?? Enumerable.Empty<DeviceContact>();
         }
     }
 }

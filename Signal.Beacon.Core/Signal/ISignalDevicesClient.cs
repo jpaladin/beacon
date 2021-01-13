@@ -10,9 +10,15 @@ namespace Signal.Beacon.Core.Signal
     {
         Task<string> RegisterDeviceAsync(DeviceDiscoveredCommand discoveredDevice, CancellationToken cancellationToken);
 
-        Task DevicesPublishStateAsync(string deviceId, DeviceTarget target, object? setValue, DateTime timeStamp,
+        Task DevicesPublishStateAsync(
+            string deviceId, 
+            DeviceTarget target, 
+            object? setValue, 
+            DateTime timeStamp,
             CancellationToken cancellationToken);
 
         Task<IEnumerable<DeviceConfiguration>> GetDevicesAsync(CancellationToken cancellationToken);
+
+        Task UpdateDeviceAsync(string deviceId, DeviceDiscoveredCommand command, CancellationToken cancellationToken);
     }
 }

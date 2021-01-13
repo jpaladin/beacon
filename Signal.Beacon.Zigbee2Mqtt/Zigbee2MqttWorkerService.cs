@@ -200,7 +200,10 @@ namespace Signal.Beacon.Zigbee2Mqtt
                 return;
             }
 
-            var inputs = device.Endpoints.SelectMany(e => e.Inputs).ToList();
+            var inputs = device.Endpoints
+                .SelectMany(e => e.Contacts)
+                .Where(c => c.Access.HasFlag(DeviceContactAccess.Get) || c.Access.HasFlag(DeviceContactAccess.Read))
+                .ToList();
             if (!inputs.Any())
             {
                 this.logger.LogDebug("Device {DeviceAlias} has no inputs", deviceAlias);
@@ -249,11 +252,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
                         continue;
                     }
 
-                    var existingDevice = await this.devicesDao.GetAsync(
-                        $"{Zigbee2MqttChannels.DeviceChannel}/{bridgeDevice.IeeeAddress}", cancellationToken);
-                    if (existingDevice == null)
-                        await this.NewDevice(bridgeDevice, cancellationToken);
-                    else await this.UpdateDevice(bridgeDevice);
+                    await this.DeviceDiscoveredAsync(bridgeDevice, cancellationToken);
                 }
                 catch(Exception ex)
                 {
@@ -262,13 +261,8 @@ namespace Signal.Beacon.Zigbee2Mqtt
                 }
             }
         }
-
-        private async Task UpdateDevice(BridgeDevice bridgeDevice)
-        {
-            throw new NotImplementedException();
-        }
-
-        private async Task NewDevice(BridgeDevice bridgeDevice, CancellationToken cancellationToken)
+        
+        private async Task DeviceDiscoveredAsync(BridgeDevice bridgeDevice, CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(bridgeDevice.IeeeAddress))
                 throw new ArgumentException("Device IEEE address is required.");
@@ -284,8 +278,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
 
                 if (bridgeDevice.Definition.Exposes != null)
                 {
-                    var inputs = new List<DeviceContact>();
-                    var outputs = new List<DeviceContact>();
+                    var contacts = new List<DeviceContact>();
                     foreach (var feature in bridgeDevice.Definition.Exposes.SelectMany(e =>
                         new List<BridgeDeviceExposeFeature>(e.Features ??
                                                             Enumerable.Empty<BridgeDeviceExposeFeature>()) {e}))
@@ -306,24 +299,22 @@ namespace Signal.Beacon.Zigbee2Mqtt
                                 name, type, deviceConfig.Identifier);
                             continue;
                         }
-                        
-                        var contact = new DeviceContact(name, dataType);
-                        var isInput = feature.Access.HasFlag(BridgeDeviceExposeFeatureAccess.Readonly) ||
-                                      feature.Access.HasFlag(BridgeDeviceExposeFeatureAccess.Request);
-                        if (isInput)
-                            inputs.Add(
-                                contact with {
-                                    IsReadonly = feature.Access.HasFlag(BridgeDeviceExposeFeatureAccess.Readonly)
-                                    });
-                        var isOutput = feature.Access.HasFlag(BridgeDeviceExposeFeatureAccess.Write);
-                        if (isOutput) outputs.Add(contact);
+
+                        var access = DeviceContactAccess.None;
+                        if (feature.Access.HasFlag(BridgeDeviceExposeFeatureAccess.Readonly))
+                            access |= DeviceContactAccess.Read;
+                        if (feature.Access.HasFlag(BridgeDeviceExposeFeatureAccess.Request))
+                            access |= DeviceContactAccess.Get;
+                        if (feature.Access.HasFlag(BridgeDeviceExposeFeatureAccess.Write))
+                            access |= DeviceContactAccess.Write;
+                        contacts.Add(new DeviceContact(name, dataType, access));
                     }
 
-                    if (inputs.Any() || outputs.Any())
+                    if (contacts.Any())
                     {
                         deviceConfig.Endpoints = new List<DeviceEndpoint>
                         {
-                            new(Zigbee2MqttChannels.DeviceChannel, inputs, outputs)
+                            new(Zigbee2MqttChannels.DeviceChannel, contacts)
                         };
                     }
                 }
@@ -339,7 +330,9 @@ namespace Signal.Beacon.Zigbee2Mqtt
             {
                 var device = await this.devicesDao.GetAsync(deviceIdentifier, cancellationToken);
                 var inputContacts =
-                    device.Endpoints.SelectMany(e => e.Inputs.Where(i => !i.IsReadonly).Select(ei => ei.Name));
+                    device.Endpoints.SelectMany(e => e.Contacts
+                        .Where(i => i.Access.HasFlag(DeviceContactAccess.Get))
+                        .Select(ei => ei.Name));
 
                 // TODO: Publish only to specific client (that has device)
 

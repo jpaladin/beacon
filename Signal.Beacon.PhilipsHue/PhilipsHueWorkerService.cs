@@ -24,7 +24,6 @@ namespace Signal.Beacon.PhilipsHue
         private readonly ICommandHandler<DeviceStateSetCommand> deviceStateSetHandler;
         private readonly ICommandHandler<DeviceDiscoveredCommand> deviceDiscoveryHandler;
         private readonly IConductSubscriberClient conductSubscriberClient;
-        private readonly IDevicesDao devicesDao;
         private readonly ILogger<PhilipsHueWorkerService> logger;
         private readonly IConfigurationService configurationService;
 
@@ -36,14 +35,12 @@ namespace Signal.Beacon.PhilipsHue
             ICommandHandler<DeviceStateSetCommand> deviceStateSerHandler,
             ICommandHandler<DeviceDiscoveredCommand> deviceDiscoveryHandler,
             IConductSubscriberClient conductSubscriberClient,
-            IDevicesDao devicesDao,
             ILogger<PhilipsHueWorkerService> logger,
             IConfigurationService configurationService)
         {
             this.deviceStateSetHandler = deviceStateSerHandler ?? throw new ArgumentNullException(nameof(deviceStateSerHandler));
             this.deviceDiscoveryHandler = deviceDiscoveryHandler ?? throw new ArgumentNullException(nameof(deviceDiscoveryHandler));
             this.conductSubscriberClient = conductSubscriberClient ?? throw new ArgumentNullException(nameof(conductSubscriberClient));
-            this.devicesDao = devicesDao ?? throw new ArgumentNullException(nameof(devicesDao));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
         }
@@ -210,11 +207,7 @@ namespace Signal.Beacon.PhilipsHue
                             continue;
                         }
 
-                        var existingDevice =
-                            await this.devicesDao.GetAsync(ToSignalDeviceId(light.UniqueId), cancellationToken);
-                        if (existingDevice == null)
-                            this.NewLight(bridgeId, light, cancellationToken);
-                        else this.UpdateLight(bridgeId, light, cancellationToken);
+                        this.LightDiscoveredAsync(bridgeId, light, cancellationToken);
                     }
                     catch (Exception ex)
                     {
@@ -230,16 +223,12 @@ namespace Signal.Beacon.PhilipsHue
                 this.logger.LogWarning(ex, "Failed to sync devices.");
             }
         }
+        
 
-        private void UpdateLight(string bridgeId, Light light, CancellationToken cancellationToken)
-        {
-            throw new NotImplementedException();
-        }
-
-        private void NewLight(string bridgeId, Light light, CancellationToken cancellationToken)
+        private void LightDiscoveredAsync(string bridgeId, Light light, CancellationToken cancellationToken)
         {
             this.lights.Add(light.UniqueId, light.AsPhilipsHueLight(bridgeId));
-            
+
             this.deviceDiscoveryHandler.HandleAsync(
                 new DeviceDiscoveredCommand(light.Name, ToSignalDeviceId(light.UniqueId))
                 {
@@ -248,8 +237,10 @@ namespace Signal.Beacon.PhilipsHue
                     Endpoints = new[]
                     {
                         new DeviceEndpoint("main",
-                            new[] {new DeviceContact("on", "bool")},
-                            new[] {new DeviceContact("on", "bool")})
+                            new[]
+                            {
+                                new DeviceContact("on", "bool", DeviceContactAccess.Get | DeviceContactAccess.Write)
+                            })
                     }
                 }, cancellationToken);
         }

@@ -99,41 +99,36 @@ namespace Signal.Beacon.Channel.Signal
 
                 try
                 {
-                    var existingDevice = await this.devicesDao.GetAsync(deviceIdentifier, this.startCancellationToken);
-                    if (existingDevice == null)
-                    {
-                        // Signal new device discovered
-                        await this.deviceDiscoveryHandler.HandleAsync(
-                            new DeviceDiscoveredCommand(
-                                config.Hostname,
-                                deviceIdentifier,
-                                new DeviceEndpoint[]
-                                {
-                                    // TODO: Parse endpoint configuration
-                                    new(SignalChannels.DeviceChannel, new[] {new DeviceContact("locked", "bool")})
-                                }),
-                            this.startCancellationToken);
+                    // Signal new device discovered
+                    await this.deviceDiscoveryHandler.HandleAsync(
+                        new DeviceDiscoveredCommand(
+                            config.Hostname,
+                            deviceIdentifier,
+                            new DeviceEndpoint[]
+                            {
+                                // TODO: Parse endpoint configuration
+                                new(SignalChannels.DeviceChannel,
+                                    new[] {new DeviceContact("locked", "bool", DeviceContactAccess.Get)})
+                            }),
+                        this.startCancellationToken);
 
-                        // Subscribe for device telemetry
-                        var telemetrySubscribeTopic = $"signal/{config.MqttTopic}/#";
-                        await message.Client.SubscribeAsync(telemetrySubscribeTopic,
-                            msg => this.TelemetryHandlerAsync($"{SignalChannels.DeviceChannel}/{config.MqttTopic}",
-                                msg));
-                    }
-                    else
-                    {
-                        throw new NotImplementedException();
-                    }
+                    // Subscribe for device telemetry
+                    var telemetrySubscribeTopic = $"signal/{config.MqttTopic}/#";
+                    await message.Client.SubscribeAsync(telemetrySubscribeTopic,
+                        msg => this.TelemetryHandlerAsync($"{SignalChannels.DeviceChannel}/{config.MqttTopic}",
+                            msg));
                 }
                 catch (Exception ex)
                 {
-                    this.logger.LogTrace(ex, "Failed to configure device {Name} ({Identifier})", config.Hostname, deviceIdentifier);
-                    this.logger.LogWarning("Failed to configure device {Name} ({Identifier})", config.Hostname, deviceIdentifier);
+                    this.logger.LogTrace(ex, "Failed to configure device {Name} ({Identifier})", config.Hostname,
+                        deviceIdentifier);
+                    this.logger.LogWarning("Failed to configure device {Name} ({Identifier})", config.Hostname,
+                        deviceIdentifier);
                 }
 
                 // Publish telemetry refresh request
                 await message.Client.PublishAsync($"signal/{config.MqttTopic}/get", "get");
-            } 
+            }
         }
 
         private async Task TelemetryHandlerAsync(string deviceIdentifier, MqttMessage message)

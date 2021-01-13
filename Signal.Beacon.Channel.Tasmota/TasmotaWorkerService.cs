@@ -98,30 +98,28 @@ namespace Signal.Beacon.Channel.Tasmota
 
                 try
                 {
-                    var existingDevice = await this.devicesDao.GetAsync(deviceIdentifier, this.startCancellationToken);
-                    if (existingDevice == null)
-                    {
-                        // Signal new device discovered
-                        await this.deviceDiscoveryHandler.HandleAsync(
-                            new DeviceDiscoveredCommand(
-                                config.DeviceName,
-                                deviceIdentifier,
-                                new DeviceEndpoint[]
-                                {
-                                    new(TasmotaChannels.DeviceChannel,
-                                        new[] {new DeviceContact("A0", "double") {NoiseReductionDelta = 5}})
-                                }),
-                            this.startCancellationToken);
-                    }
-                    else
-                    {
-                        throw new NotImplementedException();
-                    }
+                    // Signal new device discovered
+                    await this.deviceDiscoveryHandler.HandleAsync(
+                        new DeviceDiscoveredCommand(
+                            config.DeviceName,
+                            deviceIdentifier,
+                            new DeviceEndpoint[]
+                            {
+                                new(TasmotaChannels.DeviceChannel,
+                                    new[]
+                                    {
+                                        new DeviceContact("A0", "double", DeviceContactAccess.Get)
+                                            {NoiseReductionDelta = 5}
+                                    })
+                            }),
+                        this.startCancellationToken);
                 }
                 catch (Exception ex)
                 {
-                    this.logger.LogTrace(ex, "Failed to configure device {Name} ({Identifier})", config.DeviceName, deviceIdentifier);
-                    this.logger.LogWarning("Failed to configure device {Name} ({Identifier})", config.DeviceName, deviceIdentifier);
+                    this.logger.LogTrace(ex, "Failed to configure device {Name} ({Identifier})", config.DeviceName,
+                        deviceIdentifier);
+                    this.logger.LogWarning("Failed to configure device {Name} ({Identifier})", config.DeviceName,
+                        deviceIdentifier);
                 }
 
                 // Subscribe for device telemetry
