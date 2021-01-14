@@ -22,5 +22,6 @@ namespace Signal.Beacon.Core.Devices
         Task<DeviceConfiguration?> GetByAliasAsync(string alias, CancellationToken cancellationToken);
 
         Task<DeviceContact?> GetInputContactAsync(DeviceTarget target, CancellationToken cancellationToken);
+        Task<DeviceConfiguration?> GetByIdAsync(string deviceId, CancellationToken cancellationToken);
     }
 }

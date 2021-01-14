@@ -49,6 +49,13 @@ namespace Signal.Beacon.Application
                 .FirstOrDefault(c => c.Name == target.Contact);
         }
 
+        public async Task<DeviceConfiguration?> GetByIdAsync(string deviceId, CancellationToken cancellationToken)
+        {
+            await this.CacheDevicesAsync(cancellationToken);
+
+            return this.devices?.Values.FirstOrDefault(d => d.Id == deviceId);
+        }
+
         public async Task<DeviceConfiguration?> GetAsync(string identifier, CancellationToken cancellationToken)
         {
             await this.CacheDevicesAsync(cancellationToken);

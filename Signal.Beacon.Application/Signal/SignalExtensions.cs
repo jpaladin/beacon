@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using Signal.Beacon.Application.Signal.SignalR;
 using Signal.Beacon.Core.Extensions;
 using Signal.Beacon.Core.Signal;
 
@@ -11,7 +12,8 @@ namespace Signal.Beacon.Application.Signal
             return services
                 .AddTransient<ISignalDevicesClient, SignalDevicesClient>()
                 .AddTransient<ISignalBeaconClient, SignalBeaconClient>()
-                .AddSingleton<ISignalClient, ISignalClientAuthFlow, SignalClient>();
+                .AddSingleton<ISignalClient, ISignalClientAuthFlow, SignalClient>()
+                .AddSingleton<ISignalSignalRClient, SignalSignalRClient>();
         }
     }
 }

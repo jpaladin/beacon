@@ -13,6 +13,7 @@ using Signal.Beacon.Core.Mqtt;
 using Signal.Beacon.Core.Network;
 using Signal.Beacon.Core.Processes;
 using Signal.Beacon.Core.Signal;
+using Signal.Beacon.Core.Workers;
 
 namespace Signal.Beacon.Application
 {
@@ -20,6 +21,8 @@ namespace Signal.Beacon.Application
     {
         public static IServiceCollection AddBeaconApplication(this IServiceCollection services)
         {
+            services.AddTransient<IWorkerService, ApplicationWorkerService>();
+
             services.AddTransient<IConditionEvaluatorService, ConditionEvaluatorService>();
             services.AddSingleton<IConditionEvaluatorValueProvider, ConditionEvaluatorValueProvider>();
             services.AddTransient<ICommandHandler<DeviceStateSetCommand>, DevicesCommandHandler>();

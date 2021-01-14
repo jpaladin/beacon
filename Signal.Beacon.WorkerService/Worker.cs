@@ -22,7 +22,6 @@ namespace Signal.Beacon.WorkerService
         private readonly ISignalClientAuthFlow signalClientAuthFlow;
         private readonly Lazy<IEnumerable<IWorkerService>> workerServices;
         private readonly IConfigurationService configurationService;
-        private readonly IProcessor processor;
         private readonly ILogger<Worker> logger;
 
         public Worker(
@@ -30,14 +29,12 @@ namespace Signal.Beacon.WorkerService
             ISignalClientAuthFlow signalClientAuthFlow,
             Lazy<IEnumerable<IWorkerService>> workerServices, 
             IConfigurationService configurationService,
-            IProcessor processor,
             ILogger<Worker> logger)
         {
             this.signalClient = signalClient ?? throw new ArgumentNullException(nameof(signalClient));
             this.signalClientAuthFlow = signalClientAuthFlow ?? throw new ArgumentNullException(nameof(signalClientAuthFlow));
             this.workerServices = workerServices ?? throw new ArgumentNullException(nameof(workerServices));
             this.configurationService = configurationService ?? throw new ArgumentNullException(nameof(configurationService));
-            this.processor = processor ?? throw new ArgumentNullException(nameof(processor));
             this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
@@ -91,11 +88,7 @@ namespace Signal.Beacon.WorkerService
             {
                 this.signalClientAuthFlow.AssignToken(config.Token);
             }
-
-            // Start processor
-            await this.processor.StartAsync(stoppingToken);
-            this.logger.LogInformation("Processor started.");
-
+            
             // Start worker services
             await Task.WhenAll(this.workerServices.Value.Select(ws => this.StartWorkerService(ws, stoppingToken)));
             this.logger.LogInformation("All worker services started.");

@@ -39,6 +39,12 @@ namespace Signal.Beacon.Application.Signal
             this.logger.LogDebug("Token successfully assigned. Expires on: {TokenExpire}", this.token.Expire);
         }
 
+        public async Task<AuthToken?> GetTokenAsync(CancellationToken cancellationToken)
+        {
+            await this.RenewTokenIfExpiredAsync(cancellationToken);
+            return this.token;
+        }
+
         private async Task RenewTokenIfExpiredAsync(CancellationToken cancellationToken)
         {
             // Can't renew unassigned token (used for unauthenticated requests)
