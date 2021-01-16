@@ -4,7 +4,6 @@ using Signal.Beacon.Application.Mqtt;
 using Signal.Beacon.Application.Network;
 using Signal.Beacon.Application.Processing;
 using Signal.Beacon.Application.PubSub;
-using Signal.Beacon.Application.Signal;
 using Signal.Beacon.Core.Architecture;
 using Signal.Beacon.Core.Conditions;
 using Signal.Beacon.Core.Conducts;
@@ -12,7 +11,6 @@ using Signal.Beacon.Core.Devices;
 using Signal.Beacon.Core.Mqtt;
 using Signal.Beacon.Core.Network;
 using Signal.Beacon.Core.Processes;
-using Signal.Beacon.Core.Signal;
 using Signal.Beacon.Core.Workers;
 
 namespace Signal.Beacon.Application

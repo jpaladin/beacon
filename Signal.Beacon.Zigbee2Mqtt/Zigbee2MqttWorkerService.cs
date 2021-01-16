@@ -223,6 +223,11 @@ namespace Signal.Beacon.Zigbee2Mqtt
                 var dataType = input.DataType;
                 var mappedValue = MapZ2MValueToValue(dataType, value);
 
+                // Ignore empty string values (no data)
+                if (dataType != "string" &&
+                    string.IsNullOrEmpty(value))
+                    return;
+
                 try
                 {
                     await this.deviceSetStateHandler.HandleAsync(new DeviceStateSetCommand(target, mappedValue), cancellationToken);

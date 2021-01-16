@@ -13,7 +13,8 @@ namespace Signal.Beacon.Application.Signal
                 .AddTransient<ISignalDevicesClient, SignalDevicesClient>()
                 .AddTransient<ISignalBeaconClient, SignalBeaconClient>()
                 .AddSingleton<ISignalClient, ISignalClientAuthFlow, SignalClient>()
-                .AddSingleton<ISignalSignalRClient, SignalSignalRClient>();
+                .AddSingleton<ISignalSignalRDevicesHubClient, SignalSignalRDevicesHubClient>()
+                .AddSingleton<ISignalSignalRConductsHubClient, SignalSignalRConductsHubClient>();
         }
     }
 }
