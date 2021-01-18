@@ -180,7 +180,7 @@ namespace Signal.Beacon.Zigbee2Mqtt
             }
             catch (Exception ex)
             {
-                this.logger.LogWarning(ex, "Failed to process message.");
+                this.logger.LogWarning(ex, "Failed to process message: {Topic} {Payload}.", message.Topic, message.Payload);
             }
         }
 

@@ -74,7 +74,7 @@ namespace Signal.Beacon.Channel.Signal
 
         private async Task ConductHandler(Conduct conduct, CancellationToken cancellationToken)
         {
-            var localIdentifier = conduct.Target.Identifier[6..];
+            var localIdentifier = conduct.Target.Identifier[7..];
             var client = this.clients.FirstOrDefault();
             if (client != null)
                 await client.PublishAsync($"{conduct.Target.Channel}/{localIdentifier}/{conduct.Target.Contact}/set", conduct.Value);
@@ -108,7 +108,13 @@ namespace Signal.Beacon.Channel.Signal
                             {
                                 // TODO: Parse endpoint configuration
                                 new(SignalChannels.DeviceChannel,
-                                    new[] {new DeviceContact("locked", "bool", DeviceContactAccess.Get)})
+                                    new[]
+                                    {
+                                        new DeviceContact("locked", "bool", DeviceContactAccess.Read),
+                                        new DeviceContact("lock", "bool", DeviceContactAccess.Write),
+                                        new DeviceContact("unlock", "bool", DeviceContactAccess.Write),
+                                        new DeviceContact("open", "bool", DeviceContactAccess.Write)
+                                    }),
                             }),
                         this.startCancellationToken);
 
