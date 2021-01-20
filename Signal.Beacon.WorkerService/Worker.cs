@@ -95,7 +95,7 @@ namespace Signal.Beacon.WorkerService
 
             // Wait for cancellation token
             while (!stoppingToken.IsCancellationRequested)
-                await Task.Delay(-1, stoppingToken);
+                await Task.WhenAny(Task.Delay(-1, stoppingToken));
 
             // Stop services
             await Task.WhenAll(this.workerServices.Value.Select(this.StopWorkerService));
